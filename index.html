@@ -640,31 +640,36 @@ const BADGES=[
 ];
 
 /* ---------- family sync (Firebase Firestore, REST) ---------- */
-const SYNC={projectId:'',apiKey:''};   /* filled in once the Firebase project exists */
+const SYNC={projectId:'scarlett-rink',apiKey:'AIzaSyAoqkneklJjqcARhYzKdESZyoNak0X4nMA'};   /* filled in once the Firebase project exists */
 const CODE_KEY='scarletts-rink-code';
 let syncCode='',syncState='off',syncTimer=null,pullTimer=null,lastSync=0;
 try{syncCode=localStorage.getItem(CODE_KEY)||'';}catch(e){}
 function syncReady(){return !!(SYNC.projectId&&SYNC.apiKey&&syncCode);}
 function syncUrl(){return `https://firestore.googleapis.com/v1/projects/${SYNC.projectId}/databases/(default)/documents/rinks/${encodeURIComponent(syncCode)}?key=${SYNC.apiKey}`;}
 function setSyncStatus(st,msg){syncState=st;const el=document.getElementById('syncStatus');if(el)el.textContent=msg||'';}
+let syncedAt=0;  /* the remote version this device last saw */
+function takeRemote(remote,rt){const localDays=S.days;S=remote;S.days=mergeDays(remote.days||{},localDays||{});load(true);S.updatedAt=rt;saveLocal();syncedAt=rt;render();}
+async function fetchRemote(){const r=await fetch(syncUrl());if(r.status===404)return null;if(!r.ok)throw new Error('HTTP '+r.status);const doc=await r.json();return {remote:JSON.parse(doc.fields.data.stringValue),rt:Number(doc.fields.updatedAt?.integerValue||0)};}
+async function writeRemote(){const body={fields:{data:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(S.updatedAt||0)}}};
+  const r=await fetch(syncUrl(),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('HTTP '+r.status);syncedAt=S.updatedAt;}
+function okStatus(){lastSync=Date.now();setSyncStatus('ok','Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));}
+function errStatus(){setSyncStatus('err','Offline right now. Changes are saved here and will sync when back online.');}
 async function syncPush(){if(!syncReady())return;try{
-  const body={fields:{data:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(S.updatedAt||0)}}};
-  const r=await fetch(syncUrl(),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok)throw new Error('HTTP '+r.status);lastSync=Date.now();setSyncStatus('ok','Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
- }catch(e){setSyncStatus('err','Offline right now. Changes are saved here and will sync when back online.');}}
+  const got=await fetchRemote();
+  if(got&&got.rt>syncedAt&&got.rt!==S.updatedAt){takeRemote(got.remote,got.rt);toast('Updated from another device');}
+  else await writeRemote();
+  okStatus();}catch(e){errStatus();}}
 function schedulePush(){if(!syncReady())return;clearTimeout(syncTimer);syncTimer=setTimeout(syncPush,1500);}
 function mergeDays(a,b){const out={...a};for(const k in b){const x=out[k],y=b[k];if(!x){out[k]=y;continue;}
   const pick=(y.done||[]).length>(x.done||[]).length?y:x;out[k]={...x,...y,...pick,done:Array.from(new Set([...(x.done||[]),...(y.done||[])])),extras:(x.extras||[]).length>=(y.extras||[]).length?x.extras:y.extras};}return out;}
-async function syncPull(){if(!syncReady())return;try{
-  const r=await fetch(syncUrl());
-  if(r.status===404){await syncPush();return;}
-  if(!r.ok)throw new Error('HTTP '+r.status);
-  const doc=await r.json();const remote=JSON.parse(doc.fields.data.stringValue);const rt=Number(doc.fields.updatedAt?.integerValue||0);
-  if(rt>(S.updatedAt||0)){const localDays=S.days;S=remote;S.days=mergeDays(remote.days||{},localDays||{});load(true);saveLocal();render();}
-  else if(rt<(S.updatedAt||0)){await syncPush();}
-  lastSync=Date.now();setSyncStatus('ok','Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
- }catch(e){setSyncStatus('err','Offline right now. Changes are saved here and will sync when back online.');}}
-function startSync(){clearInterval(pullTimer);if(!syncReady())return;syncPull();pullTimer=setInterval(()=>{if(!document.hidden)syncPull();},20000);}
+async function syncPull(first){if(!syncReady())return;try{
+  const got=await fetchRemote();
+  if(!got){await writeRemote();okStatus();return;}
+  const localChanged=(S.updatedAt||0)>syncedAt;
+  if(first||got.rt>syncedAt){takeRemote(got.remote,got.rt);if(first){S.updatedAt=Date.now();saveLocal();await writeRemote();}}
+  else if(localChanged)await writeRemote();
+  okStatus();}catch(e){errStatus();}}
+function startSync(first){clearInterval(pullTimer);if(!syncReady())return;syncPull(first);pullTimer=setInterval(()=>{if(!document.hidden)syncPull();},20000);}
 function renderSync(){const code=document.getElementById('syncCode'),con=document.getElementById('syncConnect'),off=document.getElementById('syncOff');
   if(!SYNC.projectId){document.getElementById('syncHelp').textContent='Family sync is not set up yet. It needs a one-time Firebase setup by a parent.';code.disabled=true;con.disabled=true;return;}
   code.value=syncCode;off.hidden=!syncCode;con.textContent=syncCode?'Change code':'Connect';
@@ -699,15 +704,16 @@ function isPartial(k){const r=S.days[k];return !!(r&&r.done.length&&!isFull(k));
 /* Settle past days: a missed day uses a freeze if one is available. Runs once per calendar day. */
 function settle(){
   const t=today();
-  if(!S.settled){S.settled=t;save();return;}
-  let k=addDays(S.settled,0);
+  if(!S.settled){S.settled=t;saveLocal();return;}
+  if(S.settled===t)return;
+  let k=addDays(S.settled,0);let changed=false;
   while(k<t){
     if(!isFull(k)&&!(S.days[k]&&S.days[k].frozen)){
-      if(S.freezes>0&&streakEndingAt(addDays(k,-1))>0){S.freezes--;dayRec(k).frozen=true;}
+      if(S.freezes>0&&streakEndingAt(addDays(k,-1))>0){S.freezes--;dayRec(k).frozen=true;changed=true;}
     }
     k=addDays(k,1);
   }
-  S.settled=t;save();
+  S.settled=t;if(changed)save();else saveLocal();
 }
 function streakEndingAt(k){let n=0;while(isSafe(k)){n++;k=addDays(k,-1);if(n>5000)break;}return n;}
 function currentStreak(){const t=today();return isSafe(t)?streakEndingAt(t):streakEndingAt(addDays(t,-1));}
@@ -1007,7 +1013,7 @@ $('awardBtn').onclick=()=>{const x=EXTRAS.find(e=>e.id===awardSel);if(!awardStar
 /* ---------- sync buttons ---------- */
 document.getElementById('syncConnect').onclick=()=>{const v=document.getElementById('syncCode').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
   if(v.length<6){toast('Code needs at least 6 letters or numbers');return;}
-  syncCode=v;try{localStorage.setItem(CODE_KEY,v);}catch(e){}renderSync();setSyncStatus('wait','Connecting…');startSync();toast('Family sync on');};
+  syncCode=v;try{localStorage.setItem(CODE_KEY,v);}catch(e){}renderSync();setSyncStatus('wait','Connecting…');startSync(true);toast('Family sync on');};
 document.getElementById('syncOff').onclick=()=>{syncCode='';try{localStorage.removeItem(CODE_KEY);}catch(e){}clearInterval(pullTimer);renderSync();toast('Sync off. Data stays on this device.');};
 
 /* ---------- parent PIN ---------- */
@@ -1120,7 +1126,7 @@ function confetti(){
 /* ---------- boot ---------- */
 load();settle();checkBadges();render();startSync();
 const v=location.hash.slice(1);if(['progress','me','games','shop','coach'].includes(v))showView(v);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){settle();render();syncPull();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){syncPull().then(()=>{settle();render();});}});
 })();
 </script>
 
