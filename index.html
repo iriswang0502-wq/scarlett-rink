@@ -472,6 +472,12 @@ textarea{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace;b
       <div class="actions" style="margin-top:8px"><button class="btn ghost" id="giveFreeze">Give 1 streak freeze</button><button class="btn ghost" id="takeFreeze">Take 1 freeze</button><button class="btn ghost" id="givePucks">Give 5 pucks</button></div>
     </div>
     <div class="card">
+      <h2>Progress report</h2>
+      <p class="help">A plain-text summary of the last 4 weeks. Copy it and paste it into a chat with Claude, or just read it yourself on Sunday night.</p>
+      <textarea id="report" aria-label="Progress report" style="min-height:160px"></textarea>
+      <div class="actions" style="margin-top:8px"><button class="btn" id="makeReport">Build report</button><button class="btn ghost" id="copyReport">Copy</button></div>
+    </div>
+    <div class="card">
       <h2>Backup</h2>
       <p class="help">Everything is saved on this device only. Copy this text somewhere safe now and then, and paste it back to restore.</p>
       <textarea id="backup" aria-label="Backup data"></textarea>
@@ -1013,6 +1019,34 @@ $('restBtn').onclick=()=>{const t=today();if(isFull(t))return;if(S.freezes<=0){t
 $('giveFreeze').onclick=()=>{S.freezes=Math.min(MAX_FREEZES,S.freezes+1);save();render();toast('Freeze added');};
 $('takeFreeze').onclick=()=>{if(S.freezes<=0){toast('She has no freezes');return;}S.freezes--;save();render();toast('Freeze removed');};
 $('givePucks').onclick=()=>{S.pucks+=5;save();render();toast('+5 pucks');};
+
+/* ---------- progress report ---------- */
+function buildReport(){const t=today(),st=stats(),gs=gameStats();const L=[];
+  L.push(`SCARLETT'S RINK · progress report · ${t}`);L.push(`Player: ${S.name}${S.profile.num?' #'+S.profile.num:''}${S.profile.team?' · '+S.profile.team:''}`);
+  L.push(`Level ${st.level} (${TITLES[st.level-1]}) · ${st.xp} XP · streak now ${st.streak}, best ${st.best} · freezes ${S.freezes} · pucks ${S.pucks}`);
+  L.push('');L.push('LAST 4 WEEKS (Mon-Sun)  █ full  ▒ partial  ❄ freeze  _ missed');
+  const ws=weekStart();
+  for(let w=3;w>=0;w--){const start=addDays(ws,-7*w);let full=0,part=0,miss=0,xp=0,row='';
+    for(let d=0;d<7;d++){const k=addDays(start,d);if(k>t){row+='·';continue;}const f=isFull(k),fr=(S.days[k]||{}).frozen,p=isPartial(k);xp+=dayXp(k);
+      if(f){full++;row+='█';}else if(fr){row+='❄';}else if(p){part++;row+='▒';}else{miss++;row+='_';}}
+    L.push(`  ${start} ${row}  full ${full} · partial ${part} · missed ${miss} · ${xp} XP`);}
+  L.push('');L.push('DRILLS (last 28 days: times done / possible)');
+  const from=addDays(t,-27);
+  for(const c of CATS){for(const d of S.drills.filter(x=>x.cat===c.id)){let n=0;for(let i=0;i<28;i++){const k=addDays(from,i);if((S.days[k]||{done:[]}).done.includes(d.id))n++;}L.push(`  ${c.name.padEnd(13)} ${d.name}: ${n}/28`);}}
+  L.push('');L.push('LIFETIME: '+`${st.fullDays} full days · ${st.cat.shoot} shots · ${st.cat.stick} stickhandling reps · ${st.catDays.fit} fitness days · ${S.badges.length}/${BADGES.length} badges`);
+  L.push('');L.push(`GAMES: ${gs.games} played · ${gs.goals} G · ${gs.assists} A · ${gs.hit} targets hit`);
+  for(const g of S.games.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8)){const r=g.result;L.push(`  ${g.date} vs ${g.opp||'?'}: `+(r?`${r.goals||0}G ${r.assists||0}A${g.targets.shots!=null?` ${r.shots||0} shots`:''} · targets ${g.hits} hit${g.effort?` · effort "${g.effort}" ${r.effortDone?'kept':'missed'}`:''}${g.pending?' · PENDING':''}`:`upcoming (targets ${Object.entries(g.targets).map(([k,v])=>k+' '+v).join(', ')||'none'}${g.effort?`, effort "${g.effort}"`:''})`));}
+  L.push('');L.push('GOALS SHE SET:');
+  for(const g of S.goals.slice(-10)){const pr=goalProgress(g);L.push(`  [${g.done?'x':' '}] ${g.text} (${GOAL_LABEL[g.span]}${g.track!=='tick'?`, ${pr.cur}/${pr.tgt} ${TRACK_LABEL[g.track]||''}`:''}${g.done?', done '+g.doneOn:''})`);}
+  if(!S.goals.length)L.push('  none yet');
+  L.push('');L.push('EXTRAS FROM COACH (last 28 days):');let anyEx=false;
+  for(let i=27;i>=0;i--){const k=addDays(t,-i);for(const e of ((S.days[k]||{}).extras||[])){anyEx=true;L.push(`  ${k} ${e.t} ${'★'.repeat(e.stars)}${e.note?' · '+e.note:''} · +${e.pucks} pucks`);}}
+  if(!anyEx)L.push('  none');
+  L.push('');L.push(`SHOP: outfits ${S.owned.length}/${OUTFITS.length} · rink ${S.rink.length}/${RINK.length} · colours ${S.themes.length}/${THEMES.length} (wearing ${S.theme})`);
+  const rw=S.rewards.filter(r=>r.claimed);if(rw.length)L.push('Rewards claimed: '+rw.map(r=>r.text).join('; '));
+  return L.join('\n');}
+$('makeReport').onclick=()=>{$('report').value=buildReport();toast('Report ready');};
+$('copyReport').onclick=()=>{const ta=$('report');if(!ta.value)ta.value=buildReport();navigator.clipboard?.writeText(ta.value).then(()=>toast('Copied')).catch(()=>{ta.select();toast('Select and copy the text');});};
 
 /* ---------- coach actions ---------- */
 $('rwAdd').onclick=()=>{const t=$('rwText').value.trim();if(!t)return;S.rewards.push({id:'r'+Date.now(),text:t,type:$('rwType').value,value:Math.max(1,Number($('rwVal').value)||1),claimed:false});$('rwText').value='';save();render();};
