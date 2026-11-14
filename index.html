@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#10213a">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Scarlett's Rink</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@400;500;700&display=swap">
+<style>
+/* Layout: one-screen app, three tabs (Today / Progress / Coach), bottom tab bar, content scrolls inside. */
+:root{
+  --bg:#dbeeff;        /* ice */
+  --surface:#ffffff;
+  --surface-2:#e4effa;
+  --fg:#0f1f3d;        /* navy */
+  --muted:#4f6786;
+  --line:#bcd3ec;
+  --c-stick:#2b6fd6;
+  --c-shoot:#e6262f;
+  --c-fit:#1fae5f;
+  --accent:#d9212e;    /* goal light red */
+  --accent-fg:#ffffff;
+  --blue:#1f5fa8;      /* blue line */
+  --gold:#e6a400;
+  --good:#1f9d55;
+  --warn:#e07c00;
+  --display:'Bungee','Arial Black',Impact,sans-serif;
+  --body:'Rubik',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1627;--surface:#142339;--surface-2:#1d3150;--fg:#eef4fa;--muted:#9fb2c9;--line:#2b4466;
+  --accent:#ff4a55;--accent-fg:#ffffff;--blue:#5b9cf0;--gold:#ffc233;--good:#3ccf7a;--warn:#ffa040;--c-stick:#5b9cf0;--c-shoot:#ff5a62;--c-fit:#3ccf7a;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1627;--surface:#142339;--surface-2:#1d3150;--fg:#eef4fa;--muted:#9fb2c9;--line:#2b4466;
+  --accent:#ff4a55;--accent-fg:#ffffff;--blue:#5b9cf0;--gold:#ffc233;--good:#3ccf7a;--warn:#ffa040;--c-stick:#5b9cf0;--c-shoot:#ff5a62;--c-fit:#3ccf7a;color-scheme:dark}
+
+html,body{height:100%}
+body{margin:0;background:var(--bg);background-image:radial-gradient(circle at 50% -10%,rgba(255,255,255,.9),transparent 60%),linear-gradient(90deg,transparent 0 calc(50% - 2px),rgba(230,38,47,.08) calc(50% - 2px) calc(50% + 2px),transparent calc(50% + 2px));background-attachment:fixed;color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.4;
+  display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+input,select{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+input:focus,button:focus-visible,select:focus{outline:3px solid var(--blue);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font-family:var(--display);font-size:1.5rem;letter-spacing:.5px}
+h2{font-size:1.05rem;font-weight:700}
+.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:500}
+.num{font-variant-numeric:tabular-nums}
+
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--fg);color:#fff;
+  padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background-image:linear-gradient(90deg,transparent 0 48%,var(--accent) 48% 52%,transparent 52%);}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--fg)}
+header h1{color:#fff;background:var(--fg);padding:0 8px}
+.streak-pill{display:flex;align-items:center;gap:6px;background:var(--fg);border:2px solid var(--gold);border-radius:999px;padding:4px 12px 4px 8px;font-family:var(--display);font-size:1.1rem;color:var(--gold)}
+.streak-pill.cold{color:#9fb2c9;border-color:#9fb2c9}
+.pills{display:flex;gap:8px}
+.puck-pill{display:flex;align-items:center;gap:6px;background:var(--fg);border:2px solid #9fb2c9;border-radius:999px;padding:4px 12px 4px 8px;font-family:var(--display);font-size:1.1rem;color:#fff}
+.puck-pill svg{width:20px;height:20px}
+.quests{display:flex;flex-direction:column;gap:8px}
+.quest{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.quest .qbar{height:6px;background:var(--surface-2);border-radius:3px;margin-top:6px;overflow:hidden}
+.quest .qbar i{display:block;height:100%;background:var(--gold);transition:width .3s}
+.quest.done{background:color-mix(in srgb,var(--gold) 14%,var(--surface))}
+.quest .pk{font-family:var(--display);font-size:.95rem;white-space:nowrap}
+.rest{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.rest .btn{white-space:nowrap}
+.shop{display:flex;flex-direction:column;gap:10px}
+.item{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+.item .ico{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,color-mix(in srgb,var(--gold) 35%,var(--surface)),color-mix(in srgb,var(--blue) 25%,var(--surface)));display:grid;place-items:center;font-size:1.5rem}
+.item .buy{background:linear-gradient(135deg,#143b7a,#0f1f3d)!important;color:#ffc233!important}
+.item .d{font-size:.82rem;color:var(--muted)}
+.item .buy{background:var(--fg);color:var(--bg);font-family:var(--display);font-size:.9rem;padding:8px 12px;border-radius:10px;white-space:nowrap}
+.item .buy:disabled{opacity:.4;cursor:not-allowed}
+
+.extras{display:flex;flex-direction:column;gap:8px}
+.extra{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.extra .ico{font-size:1.4rem;text-align:center}
+.extra .note{font-size:.82rem;color:var(--muted)}
+.extra .stars{color:var(--gold);letter-spacing:1px}
+.extra .pk{font-family:var(--display);font-size:.9rem;white-space:nowrap}
+.award{display:grid;gap:8px}
+.award .opts{display:flex;gap:6px;flex-wrap:wrap}
+.award .opt{padding:8px 12px;border-radius:999px;background:var(--surface-2);font-weight:500;font-size:.9rem;border:2px solid transparent}
+.award .opt[aria-pressed="true"]{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 15%,var(--surface))}
+.award .star{font-size:1.6rem;padding:2px 6px;color:var(--line)}
+.award .star.on{color:var(--gold)}
+.log{display:flex;flex-direction:column;gap:6px}
+.log .l{display:grid;grid-template-columns:auto 1fr auto;gap:10px;font-size:.88rem;padding:6px 0;border-bottom:1px solid var(--line)}
+.log .l .d{color:var(--muted);font-variant-numeric:tabular-nums}
+.pin-gate{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.pin-gate input{font-size:1.4rem;letter-spacing:.3em;width:140px;text-align:center}
+
+.profile-hero{display:grid;grid-template-columns:88px 1fr auto;gap:14px;align-items:center;background:linear-gradient(135deg,var(--hero-a,#143b7a),var(--hero-b,#0f1f3d));color:#fff;border-radius:18px;padding:16px;box-shadow:0 8px 24px rgba(15,31,61,.25)}
+.jersey{width:88px;height:88px;border-radius:18px;background:var(--hero-s,#fff);color:var(--hero-a,#143b7a);display:grid;place-items:center;font-family:var(--display);font-size:2rem;box-shadow:inset 0 0 0 4px var(--hero-b,#0f1f3d)}
+@media (max-width:480px){.profile-hero{grid-template-columns:72px 1fr auto}.jersey{width:72px;height:72px;font-size:1.6rem}.crest.big{width:52px;height:52px;font-size:.8rem}}
+.profile-hero .pname{font-family:var(--display);font-size:1.3rem;line-height:1.1}
+.profile-hero .ptag{opacity:.9;font-size:.9rem;margin-top:2px}
+.profile-hero .motto{margin-top:8px;font-style:italic;opacity:.95}
+.pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pstats .card{text-align:center;padding:10px}
+.pstats .big{font-family:var(--display);font-size:1.2rem}
+.goals{display:flex;flex-direction:column;gap:8px}
+.goal{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.goal .chk{width:30px;height:30px;border-radius:9px;border:2px solid var(--line);display:grid;place-items:center;color:#fff;background:transparent}
+.goal.done .chk{background:var(--good);border-color:var(--good)}
+.goal.done .gt{text-decoration:line-through;color:var(--muted)}
+.goal .gd{font-size:.78rem;color:var(--muted)}
+.goal .x{color:var(--muted);padding:6px}
+.goal-form{display:grid;grid-template-columns:1fr auto;gap:6px}
+.goal-form select{min-width:0}
+.pfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pfields label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted)}
+.pfields label.wide{grid-column:1/-1}
+.pfields input,.pfields select{width:100%}
+.goal-form input{width:100%}
+
+.game{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.game.upcoming{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 8%,var(--surface)),var(--surface))}
+.game .ghead{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.game .gopp{font-weight:700}
+.game .gdate{font-size:.8rem;color:var(--muted)}
+.tgt{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px}
+.tgt .t{background:var(--surface-2);border-radius:10px;padding:8px;text-align:center}
+.tgt .t .v{font-family:var(--display);font-size:1.1rem}
+.tgt .t .l{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.tgt .t.hit{background:color-mix(in srgb,var(--good) 20%,var(--surface));color:var(--good)}
+.tgt .t.miss{opacity:.7}
+.effort{font-size:.9rem}
+.effort.hit{color:var(--good);font-weight:500}
+.result-form{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.result-form label{display:flex;flex-direction:column;gap:4px;font-size:.75rem;color:var(--muted)}
+.result-form input{width:100%}
+.setup{display:grid;gap:8px}
+.setup .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.setup label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--muted)}
+.setup input,.setup select{width:100%}
+.chkrow{display:flex;align-items:center;gap:8px;font-size:.95rem;color:var(--fg)}
+.chkrow input{width:22px;height:22px}
+.sstats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sstats .card{text-align:center;padding:10px 6px}
+.sstats .big{font-family:var(--display);font-size:1.2rem}
+
+.shop h2{margin:6px 0 0}
+.item.owned .buy{background:var(--good)!important;color:#fff!important}
+.item.equipped{border-color:var(--gold);box-shadow:0 0 0 2px color-mix(in srgb,var(--gold) 50%,transparent)}
+.swatch{width:48px;height:48px;border-radius:12px}
+.pending{background:color-mix(in srgb,var(--gold) 18%,var(--surface));border:1px solid color-mix(in srgb,var(--gold) 50%,var(--line));border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.pending .actions .btn{padding:6px 10px}
+
+.crest{width:44px;height:44px;border-radius:50%;background:var(--hero-s,#fff);color:var(--hero-b,#0f1f3d);display:grid;place-items:center;font-family:var(--display);font-size:.72rem;border:3px solid var(--hero-b,#0f1f3d);box-shadow:0 2px 6px rgba(0,0,0,.25);flex:none}
+.crest.big{width:64px;height:64px;font-size:1rem}
+.hero .crest{position:absolute;top:12px;right:12px}
+.hero{position:relative}
+.theme-group{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:500;margin-top:6px}
+
+.rinkwrap{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:0 2px 10px rgba(15,31,61,.06)}
+.rinkwrap svg{width:100%;height:auto;display:block;border-radius:12px}
+.rinkwrap .help{margin-top:8px}
+
+.goal{grid-template-columns:auto 1fr auto auto}
+.goal .gbar{height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden;margin-top:6px}
+.goal .gbar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--good));transition:width .3s}
+.goal .plus{width:34px;height:34px;border-radius:9px;background:var(--blue);color:#fff;font-weight:700;font-size:1.2rem;display:grid;place-items:center}
+.goal .claim{background:var(--gold);color:#10213a;font-weight:700;padding:6px 10px;border-radius:9px;font-size:.85rem;white-space:nowrap}
+.goal .left{font-size:.75rem;color:var(--muted)}
+.goal .left.urgent{color:var(--accent);font-weight:500}
+.goal-form{grid-template-columns:1fr 1fr}
+.goal-form input#goalText{grid-column:1/-1}
+.goal-form .trk{grid-column:1/-1;display:grid;grid-template-columns:1fr 90px;gap:6px}
+.frozen-banner{background:var(--blue);color:#fff;border-radius:14px;padding:12px 14px;font-weight:700}
+.streak-pill svg{width:20px;height:20px}
+
+main{flex:1;overflow-y:auto;padding-block:16px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.view{display:flex;flex-direction:column;gap:16px;max-width:680px;margin:0 auto}
+
+nav{display:flex;background:var(--surface);border-top:1px solid var(--line);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;min-width:0;padding:10px 0 8px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.75rem;font-weight:500;color:var(--muted);border-top:3px solid transparent}
+nav button svg{width:24px;height:24px}
+nav button[aria-selected="true"]{color:var(--accent);border-top-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:96px 1fr;gap:16px;align-items:center;background:linear-gradient(135deg,var(--hero-a,#143b7a),var(--hero-b,#0f1f3d));color:#fff;border-radius:18px;padding:16px;border:0;box-shadow:0 8px 24px rgba(15,31,61,.18)}
+.hero .lvl{color:#b9cdee}.hero .lvl b{color:#ffc233}.hero .xpbar{background:rgba(255,255,255,.18)}.hero .xpbar i{background:linear-gradient(90deg,#ffc233,#ff8a3d)}
+.mascot{width:96px;height:96px}
+.hero .say{font-size:1.05rem;font-weight:500}
+.xpbar{margin-top:8px;height:12px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+.xpbar i{display:block;height:100%;background:var(--blue);border-radius:6px;transition:width .4s}
+.lvl{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin-top:4px}
+.lvl b{color:var(--fg)}
+
+/* weekly ring + stats */
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 2px 10px rgba(15,31,61,.06)}
+.card.week{background:linear-gradient(135deg,color-mix(in srgb,var(--gold) 22%,var(--surface)),var(--surface));border-color:color-mix(in srgb,var(--gold) 40%,var(--line))}
+.card.freeze{background:linear-gradient(135deg,color-mix(in srgb,var(--blue) 18%,var(--surface)),var(--surface));border-color:color-mix(in srgb,var(--blue) 35%,var(--line))}
+.card.questcard{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 10%,var(--surface)),var(--surface));border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.ring{display:flex;align-items:center;gap:12px}
+.ring svg{width:64px;height:64px;flex:none}
+.ring .big{font-family:var(--display);font-size:1.3rem;line-height:1}
+.stat .big{font-family:var(--display);font-size:1.6rem;line-height:1}
+
+/* drill groups */
+.group+.group{margin-top:18px}
+.group h2{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-family:var(--display);font-weight:400;font-size:.95rem;letter-spacing:.3px;color:var(--cat)}
+.group h2 .tag{font-size:.75rem;font-weight:500;color:var(--muted);margin-left:auto}
+.cat-dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+.drills{display:flex;flex-direction:column;gap:8px}
+.drill{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:color-mix(in srgb,var(--cat) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--cat) 30%,var(--line));border-radius:14px;padding:12px 14px;transition:background .2s}
+.drill .name{font-weight:500}
+.drill .meta{font-size:.82rem;color:var(--muted)}
+.drill .done-btn{width:52px;height:52px;border-radius:14px;background:var(--cat);display:grid;place-items:center;font-family:var(--display);font-size:.8rem;color:#fff;transition:transform .1s;box-shadow:0 3px 0 rgba(0,0,0,.18)}
+.drill .done-btn:active{transform:scale(.92)}
+.drill.is-done{background:color-mix(in srgb,var(--good) 14%,var(--surface));border-color:color-mix(in srgb,var(--good) 40%,var(--line))}
+.drill.is-done .done-btn{background:var(--good);color:#fff;box-shadow:none}
+.drill.is-done .name{text-decoration:line-through;color:var(--muted)}
+.drill .done-btn svg{width:28px;height:28px}
+.complete-banner{background:var(--gold);color:#10213a;border-radius:14px;padding:12px 14px;font-weight:700;display:flex;gap:10px;align-items:center}
+.complete-banner .big{font-family:var(--display)}
+
+/* progress */
+.heat{display:grid;grid-template-columns:repeat(13,1fr);gap:4px}
+.heat .wk{display:grid;gap:4px}
+.heat i{display:block;aspect-ratio:1;border-radius:3px;background:var(--surface-2)}
+.heat i.p{background:color-mix(in srgb,var(--good) 45%,var(--surface-2))}
+.heat i.c{background:var(--good)}
+.heat i.f{background:var(--blue)}
+.heat i.t{outline:2px solid var(--fg);outline-offset:-2px}
+.legend{display:flex;gap:14px;font-size:.78rem;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
+.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.totals .card{text-align:center;padding:10px}
+.totals .big{font-family:var(--display);font-size:1.2rem}
+.totals .eyebrow{font-size:.65rem}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.badge{text-align:center;padding:10px 6px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.badge .ico{width:44px;height:44px;margin:0 auto 6px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#ffe08a,var(--gold) 60%,#c98a00);color:#10213a;font-family:var(--display);font-size:.9rem;box-shadow:0 2px 8px rgba(230,164,0,.45)}
+.badge.locked{opacity:.45}
+.badge.locked .ico{background:var(--surface-2);color:var(--muted)}
+.badge .t{font-size:.78rem;font-weight:500;line-height:1.2}
+.rewards{display:flex;flex-direction:column;gap:8px}
+.reward{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.reward .cond{font-size:.8rem;color:var(--muted)}
+.chip{font-size:.75rem;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.chip.unlocked{background:var(--gold);color:#10213a}
+.chip.claimed{background:var(--good);color:#fff}
+
+/* coach */
+.form-row{display:grid;grid-template-columns:1fr 70px 70px 90px auto;gap:6px;align-items:center}
+.form-row.head{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.form-row input{padding:6px 8px;font-size:.9rem}
+.icon-btn{width:34px;height:34px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;color:var(--muted)}
+.icon-btn svg{width:18px;height:18px}
+.btn{background:var(--blue);color:#fff;font-weight:700;padding:10px 16px;border-radius:10px}
+.btn.ghost{background:var(--surface-2);color:var(--fg)}
+.btn.danger{background:var(--accent);color:var(--accent-fg)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.help{font-size:.85rem;color:var(--muted)}
+textarea{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px}
+.reward-form{display:grid;grid-template-columns:1fr 110px 70px auto;gap:6px}
+@media (max-width:480px){
+  h1{font-size:1.1rem}.streak-pill,.puck-pill{font-size:.95rem;padding:3px 10px 3px 7px}
+  nav button{font-size:.66rem}nav button svg{width:22px;height:22px}
+  .sstats{grid-template-columns:repeat(2,1fr)}
+  .form-row{grid-template-columns:1fr 56px 56px 72px auto}
+  .reward-form{grid-template-columns:1fr 1fr;}
+  .reward-form input:first-child{grid-column:1/-1}
+  .hero{grid-template-columns:72px 1fr}.mascot{width:72px;height:72px}
+}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:20}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;z-index:30;opacity:0;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header>
+  <h1 id="title">Scarlett's Rink</h1>
+  <div class="pills"><div class="puck-pill" id="puckPill" title="Pucks"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="9" rx="9" ry="4" fill="#555"/><path d="M3 9v6c0 2.2 4 4 9 4s9-1.8 9-4V9c0 2.2-4 4-9 4S3 11.2 3 9z" fill="#222"/></svg><span id="puckNum" class="num">0</span></div>
+  <div class="streak-pill" id="streakPill"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 1-3s0 3 2 3c1 0 2-1 2-3S9 5 12 2z"/></svg><span id="streakNum" class="num">0</span></div></div>
+</header>
+
+<main>
+  <section class="view" id="view-today">
+    <div class="hero">
+      <svg class="mascot" id="mascot" viewBox="0 0 100 100" aria-hidden="true"></svg>
+      <div class="crest" id="hCrest" hidden></div>
+      <div>
+        <div class="say" id="say">Let's get on the ice.</div>
+        <div class="xpbar"><i id="xpFill" style="width:0%"></i></div>
+        <div class="lvl"><span>Level <b id="lvlNum" class="num">1</b> · <b id="lvlTitle">Mite</b></span><span class="num" id="xpText">0 / 100 XP</span></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="card ring week">
+        <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="var(--surface-2)" stroke-width="8"/><circle id="ringArc" cx="32" cy="32" r="26" fill="none" stroke="var(--gold)" stroke-width="8" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="163.4" transform="rotate(-90 32 32)" style="transition:stroke-dashoffset .5s"/></svg>
+        <div><div class="eyebrow">This week</div><div class="big num" id="weekText">0 / 7</div><div class="help">full days</div></div>
+      </div>
+      <div class="card stat freeze"><div class="eyebrow">Streak freezes</div><div class="big num" id="freezeText">0</div><div class="help">Earn 1 every 7 days in a row</div></div>
+    </div>
+    <div id="completeBanner" class="complete-banner" hidden><span class="big">GOAL!</span><span>All drills done today. Streak locked in.</span></div>
+    <div id="frozenBanner" class="frozen-banner" hidden>Rest day. Your streak is safe. Any drills you do still count.</div>
+    <div class="card questcard">
+      <div class="eyebrow">Daily quests</div>
+      <div class="quests" id="quests" style="margin-top:8px"></div>
+    </div>
+    <div id="groups"></div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div class="eyebrow">Extras from Coach</div><span class="help">Awarded by Mom or Dad</span></div>
+      <div class="extras" id="extrasToday" style="margin-top:8px"></div>
+    </div>
+    <div class="card rest">
+      <div><b>Sick or busy today?</b><div class="help">Use a streak freeze so today doesn't break the streak.</div></div>
+      <button class="btn ghost" id="restBtn">Use a freeze</button>
+    </div>
+  </section>
+
+  <section class="view" id="view-me" hidden>
+    <div class="profile-hero">
+      <div class="jersey" id="pJersey">#</div>
+      <div><div class="pname" id="pName">Scarlett</div><div class="ptag" id="pTag"></div><div class="motto" id="pMotto"></div></div>
+      <div class="crest big" id="pCrest" hidden></div>
+    </div>
+    <div class="rinkwrap">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>My rink</h2><span class="help" id="rinkCount"></span></div>
+      <svg id="rink" viewBox="0 0 400 220" aria-label="My rink" style="margin-top:8px"></svg>
+      <p class="help" id="rinkHint">Your puck skates here wearing whatever you bought. Add upgrades from the Shop to build your dream rink.</p>
+    </div>
+    <div class="pstats">
+      <div class="card"><div class="eyebrow">Level</div><div class="big num" id="pLevel">1</div></div>
+      <div class="card"><div class="eyebrow">Best streak</div><div class="big num" id="pBest">0</div></div>
+      <div class="card"><div class="eyebrow">Badges</div><div class="big num" id="pBadges">0</div></div>
+    </div>
+    <div class="card">
+      <h2>My goals</h2>
+      <p class="help">Write what you want to get better at. Tick it when you've done it and earn pucks: 3 for a 7-day goal, 10 for a 30-day goal, 25 for a season goal. The clock starts the day you add it.</p>
+      <div class="goal-form" style="margin:10px 0">
+        <input id="goalText" placeholder="Score a goal with my backhand">
+        <select id="goalSpan" aria-label="Goal length"><option value="week">7 days</option><option value="month">30 days</option><option value="season">Season</option></select>
+        <select id="goalTrack" aria-label="How to track"><option value="tick">Tick when done</option><option value="count">Count myself</option><option value="shots">Shots in drills (auto)</option><option value="stick">Stickhandling reps (auto)</option><option value="fulldays">Full drill days (auto)</option><option value="ggoals">Goals in games (auto)</option><option value="gassists">Assists in games (auto)</option><option value="xp">XP earned (auto)</option></select>
+        <div class="trk" id="goalTargetRow" hidden><span class="help" style="align-self:center">How many?</span><input id="goalTarget" type="number" min="1" inputmode="numeric" placeholder="e.g. 500"></div>
+        <button class="btn" id="goalAdd" style="grid-column:1/-1">Add goal</button>
+      </div>
+      <div class="goals" id="goalList"></div>
+    </div>
+    <div class="card">
+      <h2>About me</h2>
+      <div class="pfields" style="margin-top:8px">
+        <label>Name<input id="pfName"></label>
+        <label>Jersey number<input id="pfNum" inputmode="numeric" maxlength="2" placeholder="00"></label>
+        <label>Position<select id="pfPos"><option>Forward</option><option>Centre</option><option>Winger</option><option>Defence</option><option>Goalie</option></select></label>
+        <label>Team<input id="pfTeam" placeholder="Team name"></label>
+        <label class="wide">Why I play<input id="pfMotto" placeholder="Because I want to make the national team"></label>
+        <label class="wide">Favourite player<input id="pfHero" placeholder="Marie-Philip Poulin"></label>
+      </div>
+      <div class="actions" style="margin-top:10px"><button class="btn" id="pfSave">Save</button></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-games" hidden>
+    <div class="sstats">
+      <div class="card"><div class="eyebrow">Games</div><div class="big num" id="sgGames">0</div></div>
+      <div class="card"><div class="eyebrow">Goals</div><div class="big num" id="sgGoals">0</div></div>
+      <div class="card"><div class="eyebrow">Assists</div><div class="big num" id="sgAssists">0</div></div>
+      <div class="card"><div class="eyebrow">Targets hit</div><div class="big num" id="sgHit">0</div></div>
+    </div>
+    <div class="card questcard">
+      <h2>Next game</h2>
+      <p class="help">Set your targets before the game, then fill in what happened. Every goal pays 4 pucks and every assist 3, more than a full day of drills. Hitting your targets adds a bonus.</p>
+      <div class="setup" style="margin-top:10px">
+        <div class="pair"><label>Opponent<input id="gOpp" placeholder="Who are you playing?"></label><label>Date<input id="gDate" type="date"></label></div>
+        <div class="pair" style="grid-template-columns:1fr 1fr 1fr"><label>Goals<input id="gGoals" type="number" min="0" max="20" inputmode="numeric" placeholder="skip"></label><label>Assists<input id="gAssists" type="number" min="0" max="20" inputmode="numeric" placeholder="skip"></label><label>Shots<input id="gShots" type="number" min="0" max="50" inputmode="numeric" placeholder="skip"></label></div>
+        <label>Effort goal<select id="gEffort"><option>Backcheck every shift</option><option>Shoot when I'm open</option><option>First to the puck</option><option>Talk on the ice</option><option>Head up with the puck</option><option>Hard stops, no circles</option><option value="custom">Write my own…</option></select></label>
+        <input id="gEffortCustom" placeholder="My effort goal" hidden>
+        <button class="btn" id="gAdd">Set game targets</button>
+      </div>
+    </div>
+    <div id="gameList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </section>
+
+  <section class="view" id="view-shop" hidden>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div><div class="eyebrow">Your pucks</div><div class="big num" style="font-family:var(--display);font-size:1.8rem" id="shopPucks">0</div></div>
+      <div class="help" style="max-width:260px">Pucks are earned slowly: 2 for a full day, 1 or 2 per quest, 10 for a perfect week, plus goals, games and Coach's extras.</div>
+    </div>
+    <div class="shop"><h2>Power-ups</h2><div class="shop" id="shopItems"></div></div>
+    <div class="shop"><h2>Dress up your puck</h2><p class="help" style="margin:0">Buy once, wear forever. Tap an owned item to put it on or take it off.</p><div class="shop" id="shopOutfits"></div></div>
+    <div class="shop"><h2>Rink upgrades</h2><p class="help" style="margin:0">Build your dream rink on the Me tab. Each one is a big save.</p><div class="shop" id="shopRink"></div></div>
+    <div class="shop"><h2>Jersey colours</h2><p class="help" style="margin:0">Team colours for your home screen and jersey card, with your team's letters on the crest.</p><div class="shop" id="shopThemes"></div></div>
+    <div class="shop"><h2>Rewards from Coach</h2><div class="shop" id="shopRewards"></div></div>
+  </section>
+
+  <section class="view" id="view-progress" hidden>
+    <div class="card">
+      <div class="eyebrow">Last 13 weeks</div>
+      <div class="heat" id="heat" style="margin-top:8px"></div>
+      <div class="legend"><span><i style="background:var(--surface-2)"></i>Missed</span><span><i style="background:color-mix(in srgb,var(--good) 45%,var(--surface-2))"></i>Some drills</span><span><i style="background:var(--good)"></i>All drills</span><span><i style="background:var(--blue)"></i>Freeze used</span></div>
+    </div>
+    <div class="row">
+      <div class="card stat"><div class="eyebrow">Longest streak</div><div class="big num" id="bestStreak">0</div></div>
+      <div class="card stat"><div class="eyebrow">Total XP</div><div class="big num" id="totalXp">0</div></div>
+    </div>
+    <div><h2 style="margin-bottom:8px">Lifetime totals</h2><div class="totals" id="totals"></div></div>
+    <div><h2 style="margin-bottom:8px">Badges</h2><div class="badges" id="badges"></div></div>
+    <div><h2 style="margin-bottom:8px">Rewards</h2><div class="rewards" id="rewardList"></div></div>
+    <div><h2 style="margin-bottom:8px">Coach's log</h2><div class="log card" id="extrasLog"></div></div>
+  </section>
+
+  <section class="view" id="view-coach" hidden>
+    <div class="card pin-gate" id="pinSetup" hidden>
+      <h2>Parents: create a PIN</h2>
+      <p class="help">The Coach tab is for parents only. Pick a 4 to 6 digit PIN that Scarlett doesn't know. You'll need it every time you open this tab.</p>
+      <input id="pinNew" type="password" inputmode="numeric" maxlength="6" placeholder="PIN" aria-label="New PIN" autocomplete="off">
+      <input id="pinNew2" type="password" inputmode="numeric" maxlength="6" placeholder="Again" aria-label="Repeat PIN" autocomplete="off">
+      <button class="btn" id="pinCreate">Create PIN</button>
+    </div>
+    <div class="card pin-gate" id="pinGate" hidden>
+      <h2>Coach only</h2>
+      <p class="help">Enter the parent PIN to open this tab.</p>
+      <input id="pinInput" type="password" inputmode="numeric" maxlength="6" aria-label="Parent PIN" autocomplete="off">
+      <button class="btn" id="pinSubmit">Unlock</button>
+    </div>
+    <div id="coachBody" style="display:flex;flex-direction:column;gap:16px">
+    <div class="card" id="pendingCard" hidden>
+      <h2>Game results waiting for your OK</h2>
+      <p class="help">Scarlett entered these herself. Confirm to pay the pucks, or send it back if the numbers are off.</p>
+      <div id="pendingList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h2>Award an extra</h2>
+      <p class="help">For things you decide on: a BTNL gym session, a video review together, team practice, a game, or something else. Stars are for effort and improvement, and they pay bonus pucks.</p>
+      <div class="award" style="margin-top:10px">
+        <div class="opts" id="awardOpts"></div>
+        <div><span class="eyebrow">How did she do?</span><div id="awardStars"><button class="star" data-s="1" aria-label="1 star">★</button><button class="star" data-s="2" aria-label="2 stars">★</button><button class="star" data-s="3" aria-label="3 stars">★</button> <span class="help" id="starHint">Tap to rate</span></div></div>
+        <input id="awardNote" placeholder="Note (optional): great backcheck, 2 assists...">
+        <label class="help" style="display:flex;align-items:center;gap:8px">When<input id="awardDate" type="date" style="flex:1"></label>
+        <div class="pfields">
+          <label>Pucks<input id="awardPk" type="number" min="0" max="999" inputmode="numeric"></label>
+          <label>XP<input id="awardXp" type="number" min="0" max="9999" inputmode="numeric"></label>
+        </div>
+        <div class="actions"><button class="btn" id="awardBtn">Award</button><span class="help" id="awardPreview"></span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Drills</h2>
+      <p class="help">A day counts toward the streak when every drill is checked. Keep the list short enough to finish in 20 to 30 minutes.</p>
+      <div id="drillEditor" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+    <div class="card">
+      <h2>Rewards</h2>
+      <p class="help">Real-world rewards you promise. They unlock automatically at the milestone, then you mark them claimed.</p>
+      <div class="reward-form" style="margin:8px 0">
+        <input id="rwText" placeholder="Reward (new stick tape, movie night...)">
+        <select id="rwType"><option value="streak">Streak days</option><option value="level">Level</option><option value="pucks">Costs pucks</option></select>
+        <input id="rwVal" type="number" min="1" value="7" aria-label="Milestone value">
+        <button class="btn" id="rwAdd">Add</button>
+      </div>
+      <div class="rewards" id="rewardEditor"></div>
+    </div>
+    <div class="card">
+      <h2>Parent override</h2>
+      <p class="help">For a sick day or a trip. Freezes go in her bank (max 3). She also earns one automatically every 7 days in a row.</p>
+      <div class="actions" style="margin-top:8px"><button class="btn ghost" id="giveFreeze">Give 1 streak freeze</button><button class="btn ghost" id="takeFreeze">Take 1 freeze</button><button class="btn ghost" id="givePucks">Give 5 pucks</button></div>
+    </div>
+    <div class="card">
+      <h2>Backup</h2>
+      <p class="help">Everything is saved on this device only. Copy this text somewhere safe now and then, and paste it back to restore.</p>
+      <textarea id="backup" aria-label="Backup data"></textarea>
+      <div class="actions" style="margin-top:8px"><button class="btn ghost" id="copyBackup">Copy</button><button class="btn ghost" id="restoreBackup">Restore from text above</button></div>
+    </div>
+    <div class="card">
+      <h2>Game results</h2>
+      <label class="chkrow" style="margin-top:8px"><input type="checkbox" id="confirmGames">Game results need my OK before pucks are paid</label>
+    </div>
+    <div class="card">
+      <h2>Change parent PIN</h2>
+      <p class="help">This tab locks again every time you leave it.</p>
+      <div style="display:flex;gap:8px;margin-top:8px"><input id="pinSet" type="password" inputmode="numeric" maxlength="6" placeholder="New 4 to 6 digits" aria-label="New PIN" autocomplete="off"><button class="btn" id="pinSave">Change PIN</button></div>
+    </div>
+    <div class="card">
+      <h2>Start over</h2>
+      <div class="actions" style="margin-top:8px"><button class="btn danger" id="resetBtn">Erase all progress</button><button class="btn ghost" id="resetConfirm" hidden>Yes, really erase</button></div>
+    </div>
+    </div>
+  </section>
+</main>
+
+<nav role="tablist">
+  <button role="tab" data-view="today" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 14l2.5 2.5L16 11"/></svg>Today</button>
+  <button role="tab" data-view="progress" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Progress</button>
+  <button role="tab" data-view="me" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Me</button>
+  <button role="tab" data-view="games" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h18v9H3zM3 10l4-5h10l4 5M12 10v9"/></svg>Games</button>
+  <button role="tab" data-view="shop" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18l-2 13H5L3 7zM8 7a4 4 0 0 1 8 0"/></svg>Shop</button>
+  <button role="tab" data-view="coach" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l16 16M20 4L4 20"/><circle cx="12" cy="12" r="3"/></svg>Coach</button>
+</nav>
+<canvas id="confetti"></canvas>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+const KEY='scarletts-rink-v1';
+const CATS=[
+  {id:'stick',name:'Stickhandling',color:'var(--c-stick)'},
+  {id:'shoot',name:'Shooting',color:'var(--c-shoot)'},
+  {id:'fit',name:'Fitness',color:'var(--c-fit)'}
+];
+const DEFAULT_DRILLS=[
+  {id:'d1',cat:'stick',name:'Figure 8 around two pucks',target:2,unit:'min',pts:20},
+  {id:'d2',cat:'stick',name:'Toe drags',target:50,unit:'reps',pts:20},
+  {id:'d3',cat:'stick',name:'Wide stickhandling, head up',target:100,unit:'reps',pts:15},
+  {id:'d4',cat:'shoot',name:'Wrist shots',target:25,unit:'shots',pts:20},
+  {id:'d5',cat:'shoot',name:'Backhand shots',target:15,unit:'shots',pts:20},
+  {id:'d6',cat:'shoot',name:'Quick-release snap shots',target:20,unit:'shots',pts:25},
+  {id:'d7',cat:'fit',name:'Ankle',target:5,unit:'min',pts:20},
+  {id:'d8',cat:'fit',name:'Skater lunges',target:20,unit:'reps',pts:15},
+  {id:'d9',cat:'fit',name:'Squat jumps',target:20,unit:'reps',pts:15}
+];
+const DEFAULT_REWARDS=[
+  {id:'r1',text:'Pick dinner (example)',type:'streak',value:7,claimed:false},
+  {id:'r2',text:'New roll of stick tape (example)',type:'level',value:3,claimed:false},
+  {id:'r3',text:'30 min extra screen time (example)',type:'pucks',value:25,claimed:false}
+];
+const MAX_FREEZES=3;
+const QUESTS=[
+  {id:'xp60',t:'Earn 60 XP today',pk:1,goal:60,prog:d=>d.xp},
+  {id:'shootAll',t:'Finish every shooting drill',pk:1,goal:1,prog:d=>d.catFull.shoot?1:0},
+  {id:'stickAll',t:'Finish every stickhandling drill',pk:1,goal:1,prog:d=>d.catFull.stick?1:0},
+  {id:'fitAll',t:'Finish every fitness drill',pk:1,goal:1,prog:d=>d.catFull.fit?1:0},
+  {id:'five',t:'Complete 5 drills',pk:1,goal:5,prog:d=>d.count},
+  {id:'oneEach',t:'Do one drill from each group',pk:1,goal:3,prog:d=>d.catsTouched},
+  {id:'early',t:'Finish all drills before 7 pm',pk:2,goal:1,prog:d=>d.fullBefore19?1:0},
+  {id:'shots40',t:'Take 40 shots',pk:1,goal:40,prog:d=>d.shots}
+];
+const EXTRAS=[
+  {id:'btnl',ico:'🏋️',t:'BTNL gym session',pk:2,xp:40},
+  {id:'video',ico:'🎥',t:'Video review',pk:3,xp:30},
+  {id:'practice',ico:'⛸️',t:'Team practice',pk:2,xp:30},
+  {id:'game',ico:'🥅',t:'Game day',pk:3,xp:50},
+  {id:'other',ico:'⭐',t:'Something else',pk:2,xp:20}
+];
+const STAR_BONUS=[0,0,2,5];  /* pucks for 1, 2, 3 stars */
+const STAR_TEXT=['','Showed up and tried','Good effort, got better','Best game yet!'];
+const OUTFITS=[
+  {id:'visor',ico:'🕶️',t:'Visor',d:'Cool and shady.',cost:60},
+  {id:'helmet',ico:'⛑️',t:'Helmet',d:'Team-colour bucket.',cost:80},
+  {id:'captain',ico:'🅲',t:"Captain's C",d:'Leader on and off the ice.',cost:120},
+  {id:'stick',ico:'🏒',t:'Golden stick',d:'Only for snipers.',cost:180},
+  {id:'mask',ico:'🥅',t:'Goalie mask',d:'Nothing gets past you.',cost:150},
+  {id:'crown',ico:'👑',t:'Crown',d:'Rink royalty. Level 10 look.',cost:300}
+];
+const THEMES=[
+  {id:'navy',t:'Classic navy',a:'#143b7a',b:'#0f1f3d',s:'#ffffff',ab:'',cost:0,g:'Basics'},
+  {id:'red',t:'Red & white',a:'#e6262f',b:'#8f0f17',s:'#ffffff',ab:'',cost:40,g:'Basics'},
+  {id:'purple',t:'Purple power',a:'#7a3fd1',b:'#3a1b6e',s:'#ffd166',ab:'',cost:40,g:'Basics'},
+  {id:'gold',t:'Champion gold',a:'#e6a400',b:'#8a5a00',s:'#ffffff',ab:'',cost:60,g:'Basics'},
+  {id:'tor',t:'Toronto',a:'#00205b',b:'#001238',s:'#ffffff',ab:'TOR',cost:60,g:'NHL colours'},
+  {id:'mtl',t:'Montreal',a:'#af1e2d',b:'#192168',s:'#ffffff',ab:'MTL',cost:60,g:'NHL colours'},
+  {id:'ott',t:'Ottawa',a:'#c52032',b:'#111111',s:'#c2912e',ab:'OTT',cost:60,g:'NHL colours'},
+  {id:'van',t:'Vancouver',a:'#00205b',b:'#00843d',s:'#ffffff',ab:'VAN',cost:60,g:'NHL colours'},
+  {id:'edm',t:'Edmonton',a:'#ff4c00',b:'#041e42',s:'#ffffff',ab:'EDM',cost:60,g:'NHL colours'},
+  {id:'cgy',t:'Calgary',a:'#d2001c',b:'#7a0012',s:'#faaf19',ab:'CGY',cost:60,g:'NHL colours'},
+  {id:'wpg',t:'Winnipeg',a:'#041e42',b:'#004c97',s:'#ac162c',ab:'WPG',cost:60,g:'NHL colours'},
+  {id:'bos',t:'Boston',a:'#fcb514',b:'#111111',s:'#ffffff',ab:'BOS',cost:60,g:'NHL colours'},
+  {id:'pit',t:'Pittsburgh',a:'#111111',b:'#cfc493',s:'#fcb514',ab:'PIT',cost:60,g:'NHL colours'},
+  {id:'col',t:'Colorado',a:'#6f263d',b:'#236192',s:'#a2aaad',ab:'COL',cost:60,g:'NHL colours'},
+  {id:'vgk',t:'Vegas',a:'#b4975a',b:'#333f42',s:'#000000',ab:'VGK',cost:60,g:'NHL colours'},
+  {id:'chi',t:'Chicago',a:'#cf0a2c',b:'#111111',s:'#ffffff',ab:'CHI',cost:60,g:'NHL colours'},
+  {id:'fla',t:'Florida',a:'#c8102e',b:'#041e42',s:'#b9975b',ab:'FLA',cost:60,g:'NHL colours'},
+  {id:'sea',t:'Seattle',a:'#001628',b:'#99d9d9',s:'#e9072b',ab:'SEA',cost:60,g:'NHL colours'},
+  {id:'psce',t:'Toronto Sceptres',a:'#2c6fb6',b:'#0a2a52',s:'#ffffff',ab:'TOR',cost:70,g:'PWHL colours'},
+  {id:'pvic',t:'Montreal Victoire',a:'#862633',b:'#3a0d14',s:'#ffffff',ab:'MTL',cost:70,g:'PWHL colours'},
+  {id:'pcha',t:'Ottawa Charge',a:'#c8102e',b:'#111111',s:'#ffffff',ab:'OTT',cost:70,g:'PWHL colours'},
+  {id:'pfle',t:'Boston Fleet',a:'#0f5132',b:'#062516',s:'#ffffff',ab:'BOS',cost:70,g:'PWHL colours'},
+  {id:'pfro',t:'Minnesota Frost',a:'#4b2e83',b:'#20123f',s:'#ffffff',ab:'MIN',cost:70,g:'PWHL colours'},
+  {id:'psir',t:'New York Sirens',a:'#00a3a0',b:'#004d4b',s:'#ffffff',ab:'NY',cost:70,g:'PWHL colours'}
+];
+const RINK=[
+  {id:'nets',ico:'🥅',t:'Real nets',d:'Two proper goals, red pipes and all.',cost:40},
+  {id:'lines',ico:'🎨',t:'Painted ice',d:'Blue lines, red line, circles and creases.',cost:60},
+  {id:'boards',ico:'🪵',t:'Team boards',d:'Boards and glass in your jersey colours.',cost:80},
+  {id:'score',ico:'🔢',t:'Scoreboard',d:'Hangs over centre ice and shows your season goals.',cost:120},
+  {id:'lamp',ico:'🚨',t:'Goal lights',d:'Red lamps behind both nets.',cost:100},
+  {id:'bench',ico:'🪑',t:'Player benches',d:'Somewhere to catch your breath.',cost:90},
+  {id:'crowd',ico:'👥',t:'Fans in the stands',d:'A crowd that comes to watch you.',cost:160},
+  {id:'zam',ico:'🚜',t:'Zamboni',d:'Fresh ice every day.',cost:200},
+  {id:'banner',ico:'🏆',t:'Championship banner',d:'Raised to the rafters.',cost:250},
+  {id:'lights',ico:'💡',t:'Arena lights',d:'Big-league lighting rig.',cost:300}
+];
+const SHOP=[
+  {id:'freeze',ico:'🧊',t:'Streak freeze',d:'Protects one missed day. Hold up to 3. You also earn one free every 7 days in a row.',cost:40},
+  {id:'double',ico:'⚡',t:'Double XP today',d:'Every drill you finish today is worth 2x XP.',cost:25},
+  {id:'skip',ico:'🎟️',t:'Skip one drill',d:'Today counts as full with one drill left undone.',cost:25},
+  {id:'mystery',ico:'🎁',t:'Mystery puck',d:'Could be pucks back, bonus XP, or a freeze. Feeling lucky?',cost:10},
+  {id:'repair',ico:'🔧',t:'Streak repair',d:'Lost your streak in the last 2 days? Buy it back.',cost:40}
+];
+const LEVELS=[0,100,250,450,700,1000,1400,1900,2500,3200,4000,5000,6500,8000,10000];
+const TITLES=['Mite','Rookie','Prospect','Grinder','Playmaker','Sniper','Power Forward','Captain','All-Star','MVP','Franchise Player','Legend','Hall of Famer','Icon','GOAT'];
+const BADGES=[
+  {id:'first',t:'First drill',ico:'1',test:s=>s.totalDone>=1},
+  {id:'day1',t:'First full day',ico:'✓',test:s=>s.fullDays>=1},
+  {id:'s3',t:'3-day streak',ico:'3',test:s=>s.best>=3},
+  {id:'s7',t:'7-day streak',ico:'7',test:s=>s.best>=7},
+  {id:'s14',t:'14-day streak',ico:'14',test:s=>s.best>=14},
+  {id:'s30',t:'30-day streak',ico:'30',test:s=>s.best>=30},
+  {id:'s100',t:'100-day streak',ico:'100',test:s=>s.best>=100},
+  {id:'sh250',t:'250 shots',ico:'250',test:s=>s.cat.shoot>=250},
+  {id:'sh1000',t:'1,000 shots',ico:'1K',test:s=>s.cat.shoot>=1000},
+  {id:'st1000',t:'1,000 stickhandles',ico:'1K',test:s=>s.cat.stick>=1000},
+  {id:'fit30',t:'30 workouts',ico:'30',test:s=>s.catDays.fit>=30},
+  {id:'g3',t:'3-star game',ico:'★★★',test:s=>s.threeStar>=1},
+  {id:'ex10',t:'10 extras',ico:'10',test:s=>s.extras>=10},
+  {id:'goal1',t:'First goal smashed',ico:'🎯',test:()=>S.goals.some(g=>g.done)},
+  {id:'gm1',t:'First game logged',ico:'🥅',test:()=>S.games.some(g=>g.result)},
+  {id:'gmAll',t:'Hit every target',ico:'💯',test:()=>S.games.some(g=>g.result&&g.hits>0&&g.hits===Object.keys(g.targets).length+(g.effort?1:0))},
+  {id:'g10',t:'10 season goals',ico:'10',test:()=>gameStats().goals>=10},
+  {id:'l5',t:'Level 5',ico:'L5',test:s=>s.level>=5},
+  {id:'l10',t:'Level 10',ico:'L10',test:s=>s.level>=10}
+];
+
+/* ---------- storage ---------- */
+let S;
+function load(){
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);}}catch(e){}
+  if(!S||!S.drills){S={name:'Scarlett',drills:structuredClone(DEFAULT_DRILLS),rewards:structuredClone(DEFAULT_REWARDS),days:{},freezes:0,settled:null,badges:[]};}
+  if(S.pucks==null)S.pucks=0;if(S.freezeAt==null)S.freezeAt=0;
+  if(!S.profile)S.profile={num:'',pos:'Forward',team:'',motto:'',hero:''};
+  if(!S.goals)S.goals=[];S.goals.forEach(g=>{if(!g.track)g.track='tick';if(!g.created)g.created=today();});
+  if(!S.games)S.games=[];
+  if(!S.owned)S.owned=[];if(!S.rink)S.rink=[];if(!S.equip)S.equip=[];if(!S.theme)S.theme='navy';if(!S.themes)S.themes=['navy'];
+  if(!S.settings)S.settings={confirmGames:true};
+  S.drills=S.drills.filter(d=>!(d.id==='d10'&&d.name==='BTNL'));
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+/* ---------- dates ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const key=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=()=>key(new Date());
+function addDays(k,n){const [y,m,d]=k.split('-').map(Number);const dt=new Date(y,m-1,d+n);return key(dt);}
+function dayRec(k){return S.days[k]||(S.days[k]={done:[]});}
+function isFull(k){const r=S.days[k];if(!r)return false;const ids=S.drills.map(d=>d.id);if(!ids.length)return false;const missing=ids.filter(id=>!r.done.includes(id)).length;return missing===0||(r.skip&&missing<=1);}
+function isSafe(k){return isFull(k)||!!(S.days[k]&&S.days[k].frozen);}
+function isPartial(k){const r=S.days[k];return !!(r&&r.done.length&&!isFull(k));}
+
+/* Settle past days: a missed day uses a freeze if one is available. Runs once per calendar day. */
+function settle(){
+  const t=today();
+  if(!S.settled){S.settled=t;save();return;}
+  let k=addDays(S.settled,0);
+  while(k<t){
+    if(!isFull(k)&&!(S.days[k]&&S.days[k].frozen)){
+      if(S.freezes>0&&streakEndingAt(addDays(k,-1))>0){S.freezes--;dayRec(k).frozen=true;}
+    }
+    k=addDays(k,1);
+  }
+  S.settled=t;save();
+}
+function streakEndingAt(k){let n=0;while(isSafe(k)){n++;k=addDays(k,-1);if(n>5000)break;}return n;}
+function currentStreak(){const t=today();return isSafe(t)?streakEndingAt(t):streakEndingAt(addDays(t,-1));}
+function bestStreak(){const keys=Object.keys(S.days).sort();let best=0;
+  if(!keys.length)return 0;let k=keys[0];const t=today();let run=0;
+  while(k<=t){if(isFull(k)||(S.days[k]&&S.days[k].frozen))run++;else run=0;best=Math.max(best,run);k=addDays(k,1);}
+  return best;
+}
+function weekStart(){const d=new Date();const dow=(d.getDay()+6)%7;d.setDate(d.getDate()-dow);return key(d);}
+function weekFull(){const ws=weekStart();let n=0;for(let i=0;i<7;i++){if(isFull(addDays(ws,i)))n++;}return n;}
+
+/* ---------- stats ---------- */
+function dayXp(k){const r=S.days[k];if(!r)return 0;let x=0;for(const id of r.done){const d=S.drills.find(d=>d.id===id);x+=d?d.pts:15;}if(r.double)x*=2;for(const e of (r.extras||[]))x+=e.xp;return x;}
+function totalXp(){let x=0;for(const k in S.days)x+=dayXp(k);return x;}
+function dayInfo(k){const r=S.days[k]||{done:[]};const catFull={},seen={};let shots=0;
+  for(const c of CATS){const ds=S.drills.filter(d=>d.cat===c.id);catFull[c.id]=ds.length>0&&ds.every(d=>r.done.includes(d.id));}
+  for(const id of r.done){const d=S.drills.find(d=>d.id===id);if(!d)continue;seen[d.cat]=1;if(d.cat==='shoot'&&d.unit!=='min')shots+=d.target;}
+  return {xp:dayXp(k),count:r.done.length,catFull,catsTouched:Object.keys(seen).length,shots,fullBefore19:!!r.fullAt&&r.fullAt<19};}
+function questsFor(k){let h=0;for(const ch of k)h=(h*31+ch.charCodeAt(0))>>>0;const pool=QUESTS.slice();const out=[];
+  while(out.length<3&&pool.length){h=(h*1103515245+12345)>>>0;out.push(pool.splice(h%pool.length,1)[0]);}return out;}
+function grantQuests(){const t=today();const r=dayRec(t);r.quests=r.quests||[];const info=dayInfo(t);
+  for(const q of questsFor(t)){if(!r.quests.includes(q.id)&&q.prog(info)>=q.goal){r.quests.push(q.id);S.pucks+=q.pk;setTimeout(()=>toast(`Quest done! +${q.pk} pucks`),600);}}save();}
+function levelOf(xp){let l=1;for(let i=0;i<LEVELS.length;i++){if(xp>=LEVELS[i])l=i+1;}return l;}
+function stats(){
+  const cat={stick:0,shoot:0,fit:0},catDays={stick:0,shoot:0,fit:0};let totalDone=0,fullDays=0,extras=0,threeStar=0;
+  for(const k in S.days){const seen={};for(const id of S.days[k].done){const d=S.drills.find(d=>d.id===id);if(!d)continue;totalDone++;if(d.unit!=='min')cat[d.cat]+=d.target;if(!seen[d.cat]){seen[d.cat]=1;catDays[d.cat]++;}}if(isFull(k))fullDays++;for(const e of (S.days[k].extras||[])){extras++;if(e.stars===3)threeStar++;}}
+  const xp=totalXp();
+  return {cat,catDays,totalDone,fullDays,xp,extras,threeStar,level:levelOf(xp),best:bestStreak(),streak:currentStreak()};
+}
+
+/* ---------- mascot ---------- */
+function drawMascot(mood){
+  const m=document.getElementById('mascot');
+  const eyes=mood==='excited'?'<circle cx="38" cy="46" r="4" fill="#fff"/><circle cx="62" cy="46" r="4" fill="#fff"/>':mood==='worried'?'<path d="M32 46l10-4M68 46l-10-4" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="38" cy="50" r="3" fill="#fff"/><circle cx="62" cy="50" r="3" fill="#fff"/>':'<circle cx="38" cy="48" r="3.5" fill="#fff"/><circle cx="62" cy="48" r="3.5" fill="#fff"/>';
+  const mouth=mood==='excited'?'<path d="M36 60q14 14 28 0z" fill="#fff"/>':mood==='worried'?'<path d="M40 64q10-6 20 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>':'<path d="M38 60q12 10 24 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  const w=id=>S.equip.includes(id);
+  const gear=(w('helmet')?`<path d="M18 36q0-22 32-22t32 22" fill="${THEMES.find(t=>t.id===S.theme)?.a||'#143b7a'}" stroke="#fff" stroke-width="2"/><rect x="16" y="33" width="68" height="5" rx="2" fill="#fff"/>`:'')+
+    (w('crown')?`<path d="M28 30l8-14 14 10 14-10 8 14z" fill="#ffc233" stroke="#c98a00" stroke-width="2"/><circle cx="36" cy="16" r="3" fill="#e6262f"/><circle cx="50" cy="26" r="3" fill="#2b6fd6"/><circle cx="64" cy="16" r="3" fill="#e6262f"/>`:'')+
+    (w('visor')?`<path d="M26 44h48v6q0 4-4 4H30q-4 0-4-4z" fill="#111" opacity=".85"/><path d="M28 45h44" stroke="#9fd" stroke-width="1.5" opacity=".6"/>`:'')+
+    (w('mask')?`<path d="M24 40q26-10 52 0v22q-26 10-52 0z" fill="#fff" opacity=".92"/><g stroke="#333" stroke-width="2"><path d="M30 48h40M30 56h40M38 44v22M50 44v22M62 44v22"/></g>`:'')+
+    (w('captain')?`<circle cx="22" cy="56" r="8" fill="#fff"/><text x="22" y="60" text-anchor="middle" font-family="Bungee,Arial Black" font-size="10" fill="#e6262f">C</text>`:'')+
+    (w('stick')?`<path d="M80 20l10 50" stroke="#ffc233" stroke-width="5" stroke-linecap="round"/><path d="M90 70l8 4" stroke="#ffc233" stroke-width="6" stroke-linecap="round"/>`:'');
+  m.innerHTML=`<ellipse cx="50" cy="72" rx="36" ry="12" fill="#000" opacity=".35"/><rect x="14" y="36" width="72" height="36" rx="36" ry="12" fill="#1a1a1a"/><ellipse cx="50" cy="36" rx="36" ry="12" fill="#2d2d2d"/><rect x="14" y="36" width="72" height="30" fill="#1a1a1a"/><ellipse cx="50" cy="66" rx="36" ry="12" fill="#1a1a1a"/><ellipse cx="50" cy="36" rx="36" ry="12" fill="#333"/>${w('mask')?'':eyes+mouth}${gear}`;
+}
+
+/* ---------- render ---------- */
+const $=id=>document.getElementById(id);
+function render(){
+  const st=stats();const t=today();
+  $('title').textContent=`${S.name}'s Rink`;
+  const th=THEMES.find(x=>x.id===S.theme)||THEMES[0];document.documentElement.style.setProperty('--hero-a',th.a);document.documentElement.style.setProperty('--hero-b',th.b);document.documentElement.style.setProperty('--hero-s',th.s);
+  for(const id of ['hCrest','pCrest']){const c=$(id);c.hidden=!th.ab;c.textContent=th.ab;}
+  $('streakNum').textContent=st.streak;
+  $('streakPill').classList.toggle('cold',!isFull(t)&&st.streak>0||st.streak===0);
+  const lv=st.level,base=LEVELS[lv-1],next=LEVELS[lv]||base+2000;
+  $('lvlNum').textContent=lv;$('lvlTitle').textContent=TITLES[lv-1]||'GOAT';
+  $('xpFill').style.width=Math.min(100,(st.xp-base)/(next-base)*100)+'%';
+  $('xpText').textContent=`${st.xp} / ${next} XP`;
+  const wf=weekFull();$('weekText').textContent=`${wf} / 7`;$('ringArc').style.strokeDashoffset=163.4*(1-wf/7);
+  $('freezeText').textContent=S.freezes;$('puckNum').textContent=S.pucks;$('shopPucks').textContent=S.pucks;
+  const full=isFull(t);$('completeBanner').hidden=!full;
+  const frozen=!!(S.days[t]&&S.days[t].frozen);$('frozenBanner').hidden=!frozen||full;
+  $('restBtn').disabled=frozen||full;$('restBtn').textContent=frozen?'Freeze used today':full?'Not needed today':`Use a freeze (${S.freezes} left)`;
+  const info=dayInfo(t),claimed=(S.days[t]||{}).quests||[];
+  $('quests').innerHTML=questsFor(t).map(q=>{const p=Math.min(q.goal,q.prog(info)),done=claimed.includes(q.id)||p>=q.goal;
+    return `<div class="quest ${done?'done':''}"><div><div>${q.t}</div><div class="qbar"><i style="width:${p/q.goal*100}%"></i></div></div><div class="pk num">${done?'✓ ':''}+${q.pk} 🏒</div></div>`;}).join('');
+  renderShop();
+  const ex=(S.days[t]||{}).extras||[];
+  $('extrasToday').innerHTML=ex.length?ex.map(e=>extraRow(e)).join(''):'<p class="help" style="margin:0">Nothing yet today. BTNL, video reviews, practices and games show up here when Coach awards them.</p>';
+  const all=[];for(const k of Object.keys(S.days).sort().reverse()){for(const e of (S.days[k].extras||[]))all.push({k,e});}
+  $('extrasLog').innerHTML=all.length?all.slice(0,40).map(({k,e})=>`<div class="l"><span class="d">${k.slice(5)}</span><span>${EXTRAS.find(x=>x.id===e.id)?.ico||''} ${esc(e.t)}${e.note?` · <span class="help">${esc(e.note)}</span>`:''}</span><span class="stars">${'★'.repeat(e.stars)}</span></div>`).join(''):'<p class="help" style="margin:0">No extras awarded yet.</p>';
+  const doneToday=(S.days[t]||{done:[]}).done.length;
+  const hour=new Date().getHours();
+  let mood='happy',say;
+  if(frozen&&!full){say='Rest day. Get better soon, or sneak in a drill anyway.';}
+  else if(full){mood='excited';say=['Hat trick of effort!','Coach would be proud.','Streak secured. Nice.'][doneToday%3];}
+  else if(doneToday>0){say=`${S.drills.length-doneToday} to go. Finish strong.`;}
+  else if(hour>=18&&st.streak>0){mood='worried';say=`Your ${st.streak}-day streak needs today's drills.`;}
+  else say=st.streak>0?`Day ${st.streak+1}. Let's go.`:'Fresh ice. Start a streak today.';
+  if((S.days[t]||{}).double&&!full)say+=' Double XP is on!';
+  const og=S.goals.filter(g=>!g.done);if(!full&&og.length&&doneToday===0&&hour<18)say+=` Goal: ${og[0].text}.`;
+  $('say').textContent=say;drawMascot(mood);
+
+  // groups
+  const g=$('groups');g.innerHTML='';
+  for(const c of CATS){
+    const ds=S.drills.filter(d=>d.cat===c.id);if(!ds.length)continue;
+    const done=ds.filter(d=>(S.days[t]||{done:[]}).done.includes(d.id)).length;
+    const sec=document.createElement('div');sec.className='group';sec.style.setProperty('--cat',`var(--c-${c.id})`);
+    sec.innerHTML=`<h2><span class="cat-dot" style="background:${c.color}"></span>${c.name}<span class="tag num">${done}/${ds.length}</span></h2><div class="drills"></div>`;
+    const list=sec.querySelector('.drills');
+    for(const d of ds){
+      const isD=(S.days[t]||{done:[]}).done.includes(d.id);
+      const el=document.createElement('div');el.className='drill'+(isD?' is-done':'');
+      el.innerHTML=`<div><div class="name">${esc(d.name)}</div><div class="meta num">${d.target} ${d.unit} · ${d.pts} XP</div></div><button class="done-btn" aria-pressed="${isD}" aria-label="Mark ${esc(d.name)} done">${isD?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>':'DONE'}</button>`;
+      el.querySelector('button').onclick=()=>toggle(d.id);
+      list.appendChild(el);
+    }
+    g.appendChild(sec);
+  }
+  renderProgress(st);renderProfile(st);renderGames();renderRink(st);renderCoach();
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function toggle(id){
+  const t=today();const r=dayRec(t);const wasFull=isFull(t);
+  const i=r.done.indexOf(id);
+  if(i>=0)r.done.splice(i,1);else r.done.push(id);
+  const nowFull=isFull(t);const lvBefore=levelOf(totalXp()-(i<0?dayXp(t):0));
+  if(i<0){const d=S.drills.find(d=>d.id===id);toast(`+${(d?d.pts:0)*(r.double?2:1)} XP`);}
+  if(nowFull&&!wasFull){
+    confetti();if(!r.fullAt)r.fullAt=new Date().getHours();
+    if(!r.fullBonus){r.fullBonus=true;S.pucks+=2;}
+    if(r.frozen&&r.manualFreeze){r.frozen=false;r.manualFreeze=false;S.freezes=Math.min(MAX_FREEZES,S.freezes+1);setTimeout(()=>toast('You did it anyway! Freeze refunded'),1800);}
+    setTimeout(()=>toast('GOAL! Day complete · +2 pucks'),300);
+    if(weekFull()===7&&!(r.weekBonus)){r.weekBonus=true;S.pucks+=10;setTimeout(()=>toast('Perfect week! +10 pucks'),2400);}
+    const cs=currentStreak();if(cs>0&&cs%7===0&&(S.freezeAt||0)<cs){S.freezeAt=cs;if(S.freezes<MAX_FREEZES){S.freezes++;setTimeout(()=>toast(`${cs} days in a row! +1 streak freeze`),3000);}else setTimeout(()=>toast(`${cs} days in a row! Freeze bank is full`),3000);}
+  }
+  const lvAfter=levelOf(totalXp());if(lvAfter>lvBefore){setTimeout(()=>{confetti();toast(`Level up! You're a ${TITLES[lvAfter-1]}`);},1200);}
+  save();grantQuests();checkBadges();render();
+}
+function checkBadges(){const st=stats();for(const b of BADGES){if(!S.badges.includes(b.id)&&b.test(st)){S.badges.push(b.id);setTimeout(()=>toast('Badge earned: '+b.t),900);}}save();}
+
+function renderProgress(st){
+  $('bestStreak').textContent=st.best;$('totalXp').textContent=st.xp;
+  const h=$('heat');h.innerHTML='';const t=today();
+  const ws=weekStart();const start=addDays(ws,-7*12);
+  for(let w=0;w<13;w++){const col=document.createElement('div');col.className='wk';
+    for(let d=0;d<7;d++){const k=addDays(start,w*7+d);const i=document.createElement('i');
+      if(k>t){i.style.visibility='hidden';}else{if(isFull(k))i.className='c';else if((S.days[k]||{}).frozen)i.className='f';else if(isPartial(k))i.className='p';if(k===t)i.classList.add('t');}
+      i.title=k;col.appendChild(i);}
+    h.appendChild(col);}
+  $('totals').innerHTML=CATS.map(c=>`<div class="card"><div class="eyebrow">${c.name}</div><div class="big num" style="color:${c.color}">${c.id==='fit'?st.catDays.fit:st.cat[c.id].toLocaleString()}</div><div class="help">${c.id==='fit'?'workouts':c.id==='shoot'?'shots':'reps'}</div></div>`).join('');
+  $('badges').innerHTML=BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?'':'locked'}"><div class="ico">${b.ico}</div><div class="t">${b.t}</div></div>`).join('');
+  $('rewardList').innerHTML=S.rewards.length?S.rewards.map(r=>{const u=unlocked(r,st);return `<div class="reward"><div><div>${esc(r.text)}</div><div class="cond">${condText(r)}</div></div>${r.claimed?'<span class="chip claimed">Claimed</span>':u?'<span class="chip unlocked">Unlocked!</span>':'<span class="chip">Locked</span>'}</div>`;}).join(''):'<p class="help">No rewards yet. Add some in Coach.</p>';
+}
+function unlocked(r,st){return r.type==='streak'?st.best>=r.value:r.type==='level'?st.level>=r.value:false;}
+function condText(r){return r.type==='streak'?r.value+'-day streak':r.type==='level'?'Reach level '+r.value:'Costs '+r.value+' pucks';}
+
+function renderCoach(){
+  renderAward();renderPending();gateCoach();
+  const ed=$('drillEditor');ed.innerHTML='';
+  for(const c of CATS){
+    const wrap=document.createElement('div');
+    wrap.innerHTML=`<h2 style="font-size:.95rem;margin-bottom:6px"><span class="cat-dot" style="background:${c.color};margin-right:6px"></span>${c.name}</h2><div class="form-row head"><span>Drill</span><span>Target</span><span>Unit</span><span>XP</span><span></span></div>`;
+    for(const d of S.drills.filter(d=>d.cat===c.id)){
+      const row=document.createElement('div');row.className='form-row';
+      row.innerHTML=`<input value="${esc(d.name)}" data-f="name" aria-label="Drill name"><input type="number" min="1" value="${d.target}" data-f="target" aria-label="Target"><input value="${esc(d.unit)}" data-f="unit" aria-label="Unit"><input type="number" min="1" value="${d.pts}" data-f="pts" aria-label="XP"><button class="icon-btn" aria-label="Remove drill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+      row.querySelectorAll('input').forEach(inp=>{inp.id=`drill-${d.id}-${inp.dataset.f}`;inp.onchange=()=>{const f=inp.dataset.f;d[f]=(f==='target'||f==='pts')?Math.max(1,Number(inp.value)||1):inp.value.trim()||d[f];save();render();};});
+      row.querySelector('button').onclick=()=>{S.drills=S.drills.filter(x=>x!==d);save();render();};
+      wrap.appendChild(row);
+    }
+    const add=document.createElement('button');add.className='btn ghost';add.style.marginTop='6px';add.textContent='+ Add '+c.name.toLowerCase()+' drill';
+    add.onclick=()=>{S.drills.push({id:'d'+Date.now(),cat:c.id,name:'New drill',target:10,unit:c.id==='shoot'?'shots':c.id==='fit'?'reps':'reps',pts:15});save();render();};
+    wrap.appendChild(add);ed.appendChild(wrap);
+  }
+  $('rewardEditor').innerHTML='';
+  for(const r of S.rewards){
+    const st=stats();const el=document.createElement('div');el.className='reward';
+    el.innerHTML=`<div><div>${esc(r.text)}</div><div class="cond">${condText(r)}</div></div><div class="actions">${unlocked(r,st)&&!r.claimed?'<button class="btn" style="padding:6px 10px">Mark claimed</button>':''}<button class="icon-btn" aria-label="Remove reward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+    const btns=el.querySelectorAll('button');
+    if(btns.length===2)btns[0].onclick=()=>{r.claimed=true;save();render();};
+    btns[btns.length-1].onclick=()=>{S.rewards=S.rewards.filter(x=>x!==r);save();render();};
+    $('rewardEditor').appendChild(el);
+  }
+  $('backup').value=JSON.stringify(S);
+}
+
+function extraRow(e){return `<div class="extra"><div class="ico">${EXTRAS.find(x=>x.id===e.id)?.ico||'⭐'}</div><div><div>${esc(e.t)} <span class="stars">${'★'.repeat(e.stars)}</span></div>${e.note?`<div class="note">${esc(e.note)}</div>`:''}</div><div class="pk num">+${e.pucks} 🏒 · +${e.xp} XP</div></div>`;}
+
+/* ---------- rink ---------- */
+function renderRink(st){const has=id=>S.rink.includes(id);const th=THEMES.find(x=>x.id===S.theme)||THEMES[0];
+  const boardCol=has('boards')?th.a:'#9fb2c9',glass=has('boards')?th.b:'#c5d4e3';
+  let g='';
+  g+=`<rect x="0" y="0" width="400" height="220" fill="#0f1f3d"/>`;
+  if(has('lights'))g+=`<g opacity=".9">${[60,140,200,260,340].map(x=>`<circle cx="${x}" cy="8" r="5" fill="#fff6c2"/><path d="M${x} 8 L${x-60} 220 L${x+60} 220z" fill="#fff" opacity=".08"/>`).join('')}</g>`;
+  if(has('crowd')){g+=`<g>`;for(let i=0;i<22;i++){const x=20+i*17,c=['#e6262f','#2b6fd6','#ffc233','#fff','#1fae5f'][i%5];g+=`<circle cx="${x}" cy="${i%2?26:34}" r="6" fill="${c}"/><rect x="${x-5}" y="${i%2?31:39}" width="10" height="8" rx="2" fill="${c}" opacity=".8"/>`;}g+=`</g>`;}
+  if(has('banner'))g+=`<path d="M190 2h20v30l-10-7-10 7z" fill="${th.a}" stroke="#ffc233" stroke-width="1.5"/><text x="200" y="20" text-anchor="middle" font-family="Bungee,Arial Black" font-size="7" fill="#ffc233">CHAMPS</text>`;
+  if(has('score'))g+=`<rect x="160" y="34" width="80" height="22" rx="4" fill="#111" stroke="#ffc233" stroke-width="1.5"/><text x="200" y="49" text-anchor="middle" font-family="Bungee,Arial Black" font-size="10" fill="#ff5a62">GOALS ${gameStats().goals}</text>`;
+  // rink
+  g+=`<rect x="20" y="60" width="360" height="150" rx="40" fill="#eaf5ff" stroke="${boardCol}" stroke-width="5"/>`;
+  if(has('boards'))g+=`<rect x="20" y="60" width="360" height="150" rx="40" fill="none" stroke="${glass}" stroke-width="2" stroke-dasharray="6 4"/>`;
+  if(has('lines'))g+=`<g stroke-width="2.5"><line x1="200" y1="62" x2="200" y2="208" stroke="#e6262f"/><line x1="140" y1="62" x2="140" y2="208" stroke="#2b6fd6"/><line x1="260" y1="62" x2="260" y2="208" stroke="#2b6fd6"/><circle cx="200" cy="135" r="22" fill="none" stroke="#2b6fd6"/><circle cx="85" cy="135" r="18" fill="none" stroke="#e6262f"/><circle cx="315" cy="135" r="18" fill="none" stroke="#e6262f"/><path d="M48 118a17 17 0 0 1 0 34" fill="#9fd" opacity=".7"/><path d="M352 118a17 17 0 0 0 0 34" fill="#9fd" opacity=".7"/><line x1="48" y1="70" x2="48" y2="200" stroke="#e6262f" stroke-width="1.5"/><line x1="352" y1="70" x2="352" y2="200" stroke="#e6262f" stroke-width="1.5"/></g>`;
+  if(has('nets'))g+=`<g fill="#fff" stroke="#e6262f" stroke-width="2.5"><rect x="38" y="122" width="10" height="26" rx="2"/><rect x="352" y="122" width="10" height="26" rx="2"/></g>`;
+  if(has('lamp'))g+=`<circle cx="30" cy="112" r="5" fill="#ff2a2a"/><circle cx="370" cy="112" r="5" fill="#ff2a2a"/><circle cx="30" cy="112" r="9" fill="#ff2a2a" opacity=".25"/><circle cx="370" cy="112" r="9" fill="#ff2a2a" opacity=".25"/>`;
+  if(has('bench'))g+=`<rect x="120" y="52" width="70" height="8" rx="2" fill="${th.a}"/><rect x="210" y="52" width="70" height="8" rx="2" fill="${th.a}"/>`;
+  if(has('zam'))g+=`<g transform="translate(290 170)"><rect x="0" y="4" width="44" height="18" rx="4" fill="#2b6fd6"/><rect x="26" y="-6" width="16" height="12" rx="2" fill="#5b9cf0"/><circle cx="10" cy="24" r="5" fill="#111"/><circle cx="34" cy="24" r="5" fill="#111"/><path d="M-30 20h30" stroke="#fff" stroke-width="6" opacity=".9"/></g>`;
+  // mascot (reuse today's drawing)
+  g+=`<g transform="translate(165 95) scale(0.7)">${document.getElementById('mascot').innerHTML}</g>`;
+  $('rink').innerHTML=g;
+  $('rinkCount').textContent=`${S.rink.length} of ${RINK.length} upgrades`;
+}
+
+/* ---------- profile ---------- */
+const GOAL_PK={week:3,month:10,season:25};
+const TRACK_LABEL={count:'',shots:'shots',stick:'reps',fulldays:'full days',ggoals:'goals',gassists:'assists',xp:'XP'};
+function metric(kind){const st=stats(),gs=gameStats();return {shots:st.cat.shoot,stick:st.cat.stick,fulldays:st.fullDays,ggoals:gs.goals,gassists:gs.assists,xp:st.xp}[kind]||0;}
+function goalEnds(g){if(g.span==='season')return null;return addDays(g.created,g.span==='week'?6:29);}
+function niceDate(k){const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric'});}
+function goalProgress(g){if(g.track==='tick')return {cur:g.done?1:0,tgt:1};if(g.track==='count')return {cur:g.count||0,tgt:g.target||1};return {cur:Math.max(0,metric(g.track)-(g.base||0)),tgt:g.target||1};}
+const GOAL_LABEL={week:'7-day goal',month:'30-day goal',season:'Season goal'};
+function renderProfile(st){const p=S.profile;
+  $('pName').textContent=S.name;$('pJersey').textContent=p.num?'#'+p.num:'#';
+  $('pTag').textContent=[p.pos,p.team].filter(Boolean).join(' · ')+(p.hero?' · Fan of '+p.hero:'');
+  $('pMotto').textContent=p.motto?'“'+p.motto+'”':'';
+  $('pLevel').textContent=st.level;$('pBest').textContent=st.best;$('pBadges').textContent=S.badges.length;
+  const open=S.goals.filter(g=>!g.done),done=S.goals.filter(g=>g.done).slice(-5);
+  const t=today();
+  $('goalList').innerHTML=(open.concat(done)).map(g=>{const pr=goalProgress(g),ends=goalEnds(g),tracked=g.track&&g.track!=='tick';const reached=pr.cur>=pr.tgt;
+    let left='';if(!g.done&&ends){const dl=Math.round((new Date(ends)-new Date(t))/864e5);left=dl<0?`<span class="left urgent">ended ${niceDate(ends)}</span>`:dl===0?'<span class="left urgent">ends today!</span>':`<span class="left ${dl<=2?'urgent':''}">${dl} day${dl===1?'':'s'} left · until ${niceDate(ends)}</span>`;}
+    const bar=tracked?`<div class="gbar"><i style="width:${Math.min(100,pr.cur/pr.tgt*100)}%"></i></div>`:'';
+    const prog=tracked?`<span class="num">${pr.cur} / ${pr.tgt} ${TRACK_LABEL[g.track]||''}</span> · `:'';
+    const action=g.done?'':g.track==='count'?'<button class="plus" aria-label="Add one">+</button>':'';
+    const chk=g.done?'<button class="chk" aria-label="Done">✓</button>':(!tracked||reached)?`<button class="${tracked?'claim':'chk'}" aria-label="Mark done">${tracked?'Claim!':''}</button>`:'<span></span>';
+    return `<div class="goal ${g.done?'done':''}" data-id="${g.id}">${chk}<div><div class="gt">${esc(g.text)}</div>${bar}<div class="gd">${prog}${GOAL_LABEL[g.span]} · ${GOAL_PK[g.span]} pucks${g.done?' · done '+g.doneOn.slice(5):''} ${left}</div></div>${action}<button class="x" aria-label="Remove goal">✕</button></div>`;}).join('')||'<p class="help" style="margin:0">No goals yet. What do you want to nail this week?</p>';
+  $('goalList').querySelectorAll('.goal').forEach(el=>{const g=S.goals.find(x=>x.id===el.dataset.id);
+    const fin=()=>{if(g.done)return;g.done=true;g.doneOn=today();S.pucks+=GOAL_PK[g.span];save();confetti();toast(`Goal smashed! +${GOAL_PK[g.span]} pucks`);render();};
+    el.querySelector('.chk')?.addEventListener('click',fin);el.querySelector('.claim')?.addEventListener('click',fin);
+    el.querySelector('.plus')?.addEventListener('click',()=>{g.count=(g.count||0)+1;save();if(g.count>=g.target)toast('Target reached! Tap Claim');render();});
+    el.querySelector('.x').onclick=()=>{S.goals=S.goals.filter(x=>x!==g);save();render();};});
+  $('pfName').value=S.name;$('pfNum').value=p.num;$('pfPos').value=p.pos;$('pfTeam').value=p.team;$('pfMotto').value=p.motto;$('pfHero').value=p.hero;
+}
+$('goalTrack').onchange=()=>{$('goalTargetRow').hidden=$('goalTrack').value==='tick';};
+$('goalAdd').onclick=()=>{const t=$('goalText').value.trim();if(!t)return;const track=$('goalTrack').value;let target=Math.max(1,Number($('goalTarget').value)||0);
+  if(track!=='tick'&&!$('goalTarget').value){toast('How many? Enter a target number');$('goalTarget').focus();return;}
+  const g={id:'g'+Date.now(),text:t,span:$('goalSpan').value,track,target,done:false,created:today()};
+  if(track!=='tick'&&track!=='count')g.base=metric(track);if(track==='count')g.count=0;
+  S.goals.push(g);$('goalText').value='';$('goalTarget').value='';save();render();toast('Goal added');};
+$('goalText').addEventListener('keydown',e=>{if(e.key==='Enter')$('goalAdd').click();});
+$('pfSave').onclick=()=>{S.name=$('pfName').value.trim()||'Player';const p=S.profile;p.num=$('pfNum').value.replace(/\D/g,'').slice(0,2);p.pos=$('pfPos').value;p.team=$('pfTeam').value.trim();p.motto=$('pfMotto').value.trim();p.hero=$('pfHero').value.trim();save();render();toast('Saved');};
+
+/* ---------- games ---------- */
+const GAME_PK={goals:1,assists:1,shots:1,effort:1,all:2};
+const PER_GOAL=4,PER_ASSIST=3;
+function gameStats(){let games=0,goals=0,assists=0,hit=0;for(const g of S.games){if(!g.result)continue;games++;goals+=g.result.goals||0;assists+=g.result.assists||0;hit+=g.hits||0;}return {games,goals,assists,hit};}
+function renderGames(){
+  const st=gameStats();$('sgGames').textContent=st.games;$('sgGoals').textContent=st.goals;$('sgAssists').textContent=st.assists;$('sgHit').textContent=st.hit;
+  if(!$('gDate').value)$('gDate').value=today();
+  const list=S.games.slice().sort((a,b)=>(a.result?1:0)-(b.result?1:0)||b.date.localeCompare(a.date));
+  $('gameList').innerHTML=list.map(g=>{
+    const tg=['goals','assists','shots'].filter(k=>g.targets[k]!=null);
+    let tiles=tg.map(k=>{const hit=g.result&&g.result[k]>=g.targets[k];return `<div class="t ${g.result?(hit?'hit':'miss'):''}"><div class="v num">${g.result?g.result[k]+' / ':''}${g.targets[k]}</div><div class="l">${k}</div></div>`;}).join('');
+    if(g.result)for(const k of ['goals','assists']){if(g.targets[k]==null)tiles+=`<div class="t ${g.result[k]>0?'hit':''}"><div class="v num">${g.result[k]||0}</div><div class="l">${k}</div></div>`;}
+    const eff=g.effort?`<div class="effort ${g.result&&g.result.effortDone?'hit':''}">${g.result?(g.result.effortDone?'✓ ':'✗ '):'🎯 '}${esc(g.effort)}</div>`:'';
+    const body=g.result?`<div class="help">${g.pending?'⏳ Waiting for Coach to confirm · ':'Earned '}${g.pucks} pucks · ${g.result.goals||0} G, ${g.result.assists||0} A · ${g.hits} of ${tg.length+(g.effort?1:0)} targets</div>`:
+      `<div class="result-form">${['goals','assists'].concat(tg.includes('shots')?['shots']:[]).map(k=>`<label>${k[0].toUpperCase()+k.slice(1)}<input type="number" min="0" max="50" inputmode="numeric" data-k="${k}" value="0"></label>`).join('')}</div>
+       ${g.effort?`<label class="chkrow"><input type="checkbox" data-k="effortDone">I did my effort goal</label>`:''}
+       <div class="actions"><button class="btn" data-act="finish">Enter result</button><button class="btn ghost" data-act="del">Remove</button></div>`;
+    return `<div class="game ${g.result?'':'upcoming'}" data-id="${g.id}"><div class="ghead"><span class="gopp">vs ${esc(g.opp||'?')}</span><span class="gdate">${g.date}${g.result?'':' · upcoming'}</span></div><div class="tgt">${tiles}</div>${eff}${body}</div>`;}).join('')||'<p class="help">No games yet. Set targets for your next one above.</p>';
+  $('gameList').querySelectorAll('.game').forEach(el=>{const g=S.games.find(x=>x.id===el.dataset.id);
+    el.querySelector('[data-act=del]')?.addEventListener('click',()=>{S.games=S.games.filter(x=>x!==g);save();render();});
+    el.querySelector('[data-act=finish]')?.addEventListener('click',()=>{const res={};el.querySelectorAll('input[data-k]').forEach(i=>{res[i.dataset.k]=i.type==='checkbox'?i.checked:Math.max(0,Number(i.value)||0);});
+      let hits=0,pk=(res.goals||0)*PER_GOAL+(res.assists||0)*PER_ASSIST;for(const k of ['goals','assists','shots']){if(g.targets[k]!=null&&res[k]>=g.targets[k]){hits++;pk+=GAME_PK[k];}}
+      const total=['goals','assists','shots'].filter(k=>g.targets[k]!=null).length+(g.effort?1:0);
+      if(g.effort&&res.effortDone){hits++;pk+=GAME_PK.effort;}
+      if(total>0&&hits===total)pk+=GAME_PK.all;
+      g.result=res;g.hits=hits;g.pucks=pk;
+      if(S.settings.confirmGames&&pk>0){g.pending=true;save();render();toast(`${hits} of ${total} targets. Waiting for Coach to OK the pucks.`);return;}
+      S.pucks+=pk;save();checkBadges();render();
+      if(pk>0){confetti();toast(`${res.goals||0} G, ${res.assists||0} A · +${pk} pucks`);}else toast('Logged. Next game, new targets.');});});
+}
+function renderPending(){const pend=S.games.filter(g=>g.pending);$('pendingCard').hidden=!pend.length;$('confirmGames').checked=!!S.settings.confirmGames;
+  $('pendingList').innerHTML=pend.map(g=>`<div class="pending" data-id="${g.id}"><div><b>vs ${esc(g.opp||'?')}</b> · ${g.date}</div><div class="help">${g.result.goals||0} goals, ${g.result.assists||0} assists${g.targets.shots!=null?`, ${g.result.shots||0} shots`:''} · targets: ${['goals','assists','shots'].filter(k=>g.targets[k]!=null).map(k=>`${k} ${g.result[k]} of ${g.targets[k]}`).join(', ')||'none'}${g.effort?` · effort ${g.result.effortDone?'✓':'✗'}`:''} → ${g.pucks} pucks</div><div class="actions"><button class="btn" data-act="ok">Confirm, pay ${g.pucks} pucks</button><button class="btn ghost" data-act="back">Send back</button></div></div>`).join('');
+  $('pendingList').querySelectorAll('.pending').forEach(el=>{const g=S.games.find(x=>x.id===el.dataset.id);
+    el.querySelector('[data-act=ok]').onclick=()=>{g.pending=false;S.pucks+=g.pucks;save();checkBadges();render();toast(`Paid ${g.pucks} pucks`);};
+    el.querySelector('[data-act=back]').onclick=()=>{g.pending=false;g.result=null;g.hits=0;g.pucks=0;save();render();toast('Sent back for her to re-enter');};});}
+$('confirmGames').onchange=()=>{S.settings.confirmGames=$('confirmGames').checked;save();};
+$('gEffort').onchange=()=>{$('gEffortCustom').hidden=$('gEffort').value!=='custom';};
+$('gAdd').onclick=()=>{const t={};[['goals','gGoals'],['assists','gAssists'],['shots','gShots']].forEach(([k,id])=>{const v=$(id).value.trim();if(v!=='')t[k]=Math.max(0,Number(v)||0);});
+  const effort=$('gEffort').value==='custom'?$('gEffortCustom').value.trim():$('gEffort').value;
+  if(!Object.keys(t).length&&!effort){toast('Set at least one target');return;}
+  S.games.push({id:'gm'+Date.now(),opp:$('gOpp').value.trim(),date:$('gDate').value||today(),targets:t,effort,result:null});
+  ['gOpp','gGoals','gAssists','gShots','gEffortCustom'].forEach(id=>$(id).value='');$('gDate').value=today();save();render();toast('Targets set. Go get them!');};
+
+/* ---------- awards (parent) ---------- */
+let awardSel=EXTRAS[0].id,awardStars=0;
+function renderAward(){
+  $('awardOpts').innerHTML=EXTRAS.map(x=>`<button class="opt" data-id="${x.id}" aria-pressed="${x.id===awardSel}">${x.ico} ${x.t}</button>`).join('');
+  $('awardOpts').querySelectorAll('.opt').forEach(b=>b.onclick=()=>{awardSel=b.dataset.id;renderAward();});
+  $('awardStars').querySelectorAll('.star').forEach(b=>{b.classList.toggle('on',Number(b.dataset.s)<=awardStars);b.onclick=()=>{awardStars=Number(b.dataset.s);renderAward();};});
+  $('starHint').textContent=awardStars?STAR_TEXT[awardStars]:'Tap to rate';
+  const x=EXTRAS.find(e=>e.id===awardSel);const pk=x.pk+STAR_BONUS[awardStars];
+  $('awardPk').value=pk;$('awardXp').value=x.xp;
+  $('awardPreview').textContent=`Suggested: ${pk} pucks, ${x.xp} XP. Change the numbers if you like.`;
+  const dt=$('awardDate');dt.max=today();if(!dt.value||dt.value>dt.max)dt.value=today();
+}
+$('awardBtn').onclick=()=>{const x=EXTRAS.find(e=>e.id===awardSel);if(!awardStars){toast('Pick a star rating first');return;}
+  let k=$('awardDate').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(k)||k>today())k=today();
+  const r=dayRec(k);r.extras=r.extras||[];
+  const pk=Math.max(0,Math.min(999,Math.round(Number($('awardPk').value))||0)),xp=Math.max(0,Math.min(9999,Math.round(Number($('awardXp').value))||0));
+  const note=$('awardNote').value.trim();
+  r.extras.push({id:x.id,t:x.id==='other'&&note?note:x.t,stars:awardStars,note:x.id==='other'?'':note,pucks:pk,xp:xp});
+  S.pucks+=pk;$('awardNote').value='';awardStars=0;$('awardDate').value=today();save();checkBadges();render();confetti();toast(`Awarded for ${k===today()?'today':k}! +${pk} pucks`);showView(k===today()?'today':'progress');};
+
+['awardPk','awardXp'].forEach(id=>$(id).addEventListener('input',()=>{$('awardPreview').textContent='Custom amount';}));
+
+/* ---------- parent PIN ---------- */
+let coachUnlocked=false;
+function gateCoach(){const setup=!S.pin;const need=!setup&&!coachUnlocked;$('pinSetup').hidden=!setup;$('pinGate').hidden=!need;$('coachBody').hidden=setup||need;}
+$('pinCreate').onclick=()=>{const a=$('pinNew').value.trim(),b=$('pinNew2').value.trim();if(!/^\d{4,6}$/.test(a)){toast('PIN must be 4 to 6 digits');return;}if(a!==b){toast('The two PINs don\'t match');return;}S.pin=a;coachUnlocked=true;save();$('pinNew').value='';$('pinNew2').value='';gateCoach();toast('PIN set. Coach tab unlocked.');};
+$('pinSubmit').onclick=()=>{if($('pinInput').value===S.pin){coachUnlocked=true;$('pinInput').value='';gateCoach();}else{toast('Wrong PIN');$('pinInput').value='';}};
+$('pinInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('pinSubmit').click();});
+$('pinSave').onclick=()=>{const v=$('pinSet').value.trim();if(!/^\d{4,6}$/.test(v)){toast('PIN must be 4 to 6 digits');return;}S.pin=v;save();$('pinSet').value='';toast('PIN changed');};
+
+/* ---------- shop & rest day ---------- */
+function renderShop(){const t=today();const r=S.days[t]||{};
+  $('shopOutfits').innerHTML=OUTFITS.map(o=>{const own=S.owned.includes(o.id),eq=S.equip.includes(o.id);
+    return `<div class="item ${own?'owned':''} ${eq?'equipped':''}"><div class="ico">${o.ico}</div><div><b>${o.t}</b>${eq?' <span class="chip unlocked">Wearing</span>':''}<div class="d">${o.d}</div></div><button class="buy" data-o="${o.id}" ${!own&&S.pucks<o.cost?'disabled':''}>${own?(eq?'Take off':'Put on'):o.cost+' 🏒'}</button></div>`;}).join('');
+  $('shopOutfits').querySelectorAll('.buy').forEach(b=>b.onclick=()=>{const o=OUTFITS.find(x=>x.id===b.dataset.o);
+    if(!S.owned.includes(o.id)){if(S.pucks<o.cost)return;S.pucks-=o.cost;S.owned.push(o.id);S.equip.push(o.id);confetti();toast(`You got the ${o.t}!`);}
+    else{const i=S.equip.indexOf(o.id);if(i>=0)S.equip.splice(i,1);else S.equip.push(o.id);}
+    save();render();});
+  $('shopRink').innerHTML=RINK.map(it=>{const own=S.rink.includes(it.id);
+    return `<div class="item ${own?'owned':''}"><div class="ico">${it.ico}</div><div><b>${it.t}</b><div class="d">${it.d}</div></div><button class="buy" data-rk="${it.id}" ${own||S.pucks<it.cost?'disabled':''}>${own?'Built':it.cost+' 🏒'}</button></div>`;}).join('');
+  $('shopRink').querySelectorAll('.buy').forEach(b=>b.onclick=()=>{const it=RINK.find(x=>x.id===b.dataset.rk);if(S.rink.includes(it.id)||S.pucks<it.cost)return;S.pucks-=it.cost;S.rink.push(it.id);save();confetti();toast(`${it.t} built! See it on the Me tab`);render();});
+  let lastG='';$('shopThemes').innerHTML=THEMES.map(th=>{const own=S.themes.includes(th.id),on=S.theme===th.id;const head=th.g!==lastG?`<div class="theme-group">${th.g}</div>`:'';lastG=th.g;
+    return head+`<div class="item ${own?'owned':''} ${on?'equipped':''}"><div class="swatch" style="background:linear-gradient(135deg,${th.a},${th.b});display:grid;place-items:center;font-family:var(--display);font-size:.7rem;color:${th.s};text-shadow:0 1px 2px rgba(0,0,0,.5)">${th.ab}</div><div><b>${th.t}</b>${on?' <span class="chip unlocked">On</span>':''}</div><button class="buy" data-th="${th.id}" ${on||(!own&&S.pucks<th.cost)?'disabled':''}>${own?(on?'✓':'Use'):th.cost+' 🏒'}</button></div>`;}).join('');
+  $('shopThemes').querySelectorAll('.buy').forEach(b=>b.onclick=()=>{const th=THEMES.find(x=>x.id===b.dataset.th);
+    if(!S.themes.includes(th.id)){if(S.pucks<th.cost)return;S.pucks-=th.cost;S.themes.push(th.id);toast(`${th.t} unlocked`);}
+    S.theme=th.id;save();render();});
+  $('shopItems').innerHTML=SHOP.map(it=>{let dis=S.pucks<it.cost,note='';
+    if(it.id==='repair'){const rp=repairable();if(!rp){dis=true;note=' (nothing to repair)';}else note=` (brings back ${rp.len} days)`;}
+    if(it.id==='freeze'&&S.freezes>=MAX_FREEZES){dis=true;note=' (bank full)';}
+    if(it.id==='double'&&r.double){dis=true;note=' (active)';}
+    if(it.id==='skip'&&r.skip){dis=true;note=' (active)';}
+    return `<div class="item"><div class="ico">${it.ico}</div><div><b>${it.t}</b>${note}<div class="d">${it.d}</div></div><button class="buy" data-id="${it.id}" ${dis?'disabled':''}>${it.cost} 🏒</button></div>`;}).join('');
+  $('shopItems').querySelectorAll('.buy').forEach(b=>b.onclick=()=>buy(b.dataset.id));
+  const pr=S.rewards.filter(x=>x.type==='pucks');
+  $('shopRewards').innerHTML=pr.length?pr.map(x=>`<div class="item"><div class="ico">🎁</div><div><b>${esc(x.text)}</b>${x.claimed?'<div class="d">Bought</div>':''}</div><button class="buy" data-r="${x.id}" ${x.claimed||S.pucks<x.value?'disabled':''}>${x.claimed?'✓':x.value+' 🏒'}</button></div>`).join(''):'<p class="help">Ask your coach to add rewards that cost pucks.</p>';
+  $('shopRewards').querySelectorAll('.buy').forEach(b=>b.onclick=()=>{const x=S.rewards.find(y=>y.id===b.dataset.r);if(!x||x.claimed||S.pucks<x.value)return;S.pucks-=x.value;x.claimed=true;save();confetti();toast('Bought! Show your coach');render();});}
+function buy(id){const it=SHOP.find(x=>x.id===id);if(!it||S.pucks<it.cost)return;const r=dayRec(today());
+  if(id==='freeze'){if(S.freezes>=MAX_FREEZES)return;S.freezes++;}
+  if(id==='double'){if(r.double)return;r.double=true;}
+  if(id==='skip'){if(r.skip)return;r.skip=true;}
+  if(id==='mystery'){S.pucks-=it.cost;const roll=Math.random();let msg;
+    if(roll<0.45){const n=2+Math.floor(Math.random()*6);S.pucks+=n;msg=`${n} pucks inside!`;}
+    else if(roll<0.85){const xp=[20,30,40,60][Math.floor(Math.random()*4)];r.extras=r.extras||[];r.extras.push({id:'other',t:'Mystery puck',stars:0,note:'',pucks:0,xp});msg=`+${xp} XP inside!`;}
+    else{S.freezes=Math.min(MAX_FREEZES,S.freezes+1);msg='A streak freeze! Lucky.';}
+    save();confetti();toast(msg);render();return;}
+  if(id==='repair'){const rp=repairable();if(!rp)return;for(const k of rp.days)dayRec(k).frozen=true;S.pucks-=it.cost;save();confetti();toast(`Streak repaired! Back to ${currentStreak()} days`);render();return;}
+  S.pucks-=it.cost;save();toast(`Bought ${it.t}`);render();}
+function repairable(){const t=today();if(isSafe(t)||isSafe(addDays(t,-1)))return null;
+  const days=[addDays(t,-1)];let k=addDays(t,-2);if(!isSafe(k)){days.push(k);k=addDays(k,-1);}
+  const len=streakEndingAt(k);return len>0?{days,len}:null;}
+$('restBtn').onclick=()=>{const t=today();if(isFull(t))return;if(S.freezes<=0){toast('No freezes left. Buy one in the Shop.');showView('shop');return;}
+  const r=dayRec(t);r.frozen=true;r.manualFreeze=true;S.freezes--;save();toast('Rest day. Streak is safe');render();};
+$('giveFreeze').onclick=()=>{S.freezes=Math.min(MAX_FREEZES,S.freezes+1);save();render();toast('Freeze added');};
+$('takeFreeze').onclick=()=>{if(S.freezes<=0){toast('She has no freezes');return;}S.freezes--;save();render();toast('Freeze removed');};
+$('givePucks').onclick=()=>{S.pucks+=5;save();render();toast('+5 pucks');};
+
+/* ---------- coach actions ---------- */
+$('rwAdd').onclick=()=>{const t=$('rwText').value.trim();if(!t)return;S.rewards.push({id:'r'+Date.now(),text:t,type:$('rwType').value,value:Math.max(1,Number($('rwVal').value)||1),claimed:false});$('rwText').value='';save();render();};
+$('copyBackup').onclick=()=>{const ta=$('backup');navigator.clipboard?.writeText(ta.value).then(()=>toast('Copied')).catch(()=>{ta.select();toast('Select and copy the text');});};
+$('restoreBackup').onclick=()=>{try{const o=JSON.parse($('backup').value);if(!o.drills||!o.days)throw 0;const keepPin=S.pin;S=o;if(keepPin)S.pin=keepPin;load();save();render();toast('Restored');}catch(e){toast('That text is not a valid backup');}};
+$('resetBtn').onclick=()=>{$('resetConfirm').hidden=false;};
+$('resetConfirm').onclick=()=>{S=null;try{localStorage.removeItem(KEY);}catch(e){}load();save();$('resetConfirm').hidden=true;render();toast('Fresh start');};
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('nav [role=tab]').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+function showView(v){if(v!=='coach'){coachUnlocked=false;gateCoach();}document.querySelectorAll('nav [role=tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));
+  ['today','progress','me','games','shop','coach'].forEach(x=>$('view-'+x).hidden=x!==v);document.querySelector('main').scrollTop=0;
+  if(location.hash!=='#'+v)history.replaceState(null,'','#'+v);}
+window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(['today','progress','me','games','shop','coach'].includes(v))showView(v);});
+
+/* ---------- feedback ---------- */
+let toastT;function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
+function confetti(){
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  const c=$('confetti'),ctx=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;
+  const cols=['#d9212e','#e6a400','#1f5fa8','#ffffff','#1f9d55'];
+  const ps=Array.from({length:140},()=>({x:innerWidth/2,y:innerHeight*.4,vx:(Math.random()-.5)*14,vy:-Math.random()*14-4,r:4+Math.random()*5,c:cols[Math.random()*cols.length|0],a:Math.random()*6}));
+  let f=0;(function step(){ctx.clearRect(0,0,c.width,c.height);for(const p of ps){p.x+=p.vx;p.y+=p.vy;p.vy+=.35;p.vx*=.99;p.a+=.1;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);ctx.fillStyle=p.c;ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*.6);ctx.restore();}
+    if(++f<110)requestAnimationFrame(step);else ctx.clearRect(0,0,c.width,c.height);})();
+}
+
+/* ---------- boot ---------- */
+load();settle();checkBadges();render();
+const v=location.hash.slice(1);if(['progress','me','games','shop','coach'].includes(v))showView(v);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){settle();render();}});
+})();
+</script>
+
+<script>if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
+</body>
+</html>
