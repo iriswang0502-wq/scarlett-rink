@@ -471,6 +471,12 @@ textarea{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace;b
       <p class="help">For a sick day or a trip. Freezes go in her bank (max 3). She also earns one automatically every 7 days in a row.</p>
       <div class="actions" style="margin-top:8px"><button class="btn ghost" id="giveFreeze">Give 1 streak freeze</button><button class="btn ghost" id="takeFreeze">Take 1 freeze</button><button class="btn ghost" id="givePucks">Give 5 pucks</button></div>
     </div>
+    <div class="card" id="syncCard">
+      <h2>Family sync</h2>
+      <p class="help" id="syncHelp">Share one set of data between her iPad, your computer and your phone. Enter the same family code on each device. Six or more letters or numbers, something only the family knows.</p>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input id="syncCode" placeholder="Family code" autocomplete="off" style="flex:1;min-width:140px"><button class="btn" id="syncConnect">Connect</button><button class="btn ghost" id="syncOff" hidden>Turn off</button></div>
+      <p class="help" id="syncStatus" style="margin:8px 0 0"></p>
+    </div>
     <div class="card">
       <h2>Progress report</h2>
       <p class="help">A plain-text summary of the last 4 weeks. Copy it and paste it into a chat with Claude, or just read it yourself on Sunday night.</p>
@@ -633,10 +639,41 @@ const BADGES=[
   {id:'l10',t:'Level 10',ico:'L10',test:s=>s.level>=10}
 ];
 
+/* ---------- family sync (Firebase Firestore, REST) ---------- */
+const SYNC={projectId:'',apiKey:''};   /* filled in once the Firebase project exists */
+const CODE_KEY='scarletts-rink-code';
+let syncCode='',syncState='off',syncTimer=null,pullTimer=null,lastSync=0;
+try{syncCode=localStorage.getItem(CODE_KEY)||'';}catch(e){}
+function syncReady(){return !!(SYNC.projectId&&SYNC.apiKey&&syncCode);}
+function syncUrl(){return `https://firestore.googleapis.com/v1/projects/${SYNC.projectId}/databases/(default)/documents/rinks/${encodeURIComponent(syncCode)}?key=${SYNC.apiKey}`;}
+function setSyncStatus(st,msg){syncState=st;const el=document.getElementById('syncStatus');if(el)el.textContent=msg||'';}
+async function syncPush(){if(!syncReady())return;try{
+  const body={fields:{data:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(S.updatedAt||0)}}};
+  const r=await fetch(syncUrl(),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error('HTTP '+r.status);lastSync=Date.now();setSyncStatus('ok','Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
+ }catch(e){setSyncStatus('err','Offline right now. Changes are saved here and will sync when back online.');}}
+function schedulePush(){if(!syncReady())return;clearTimeout(syncTimer);syncTimer=setTimeout(syncPush,1500);}
+function mergeDays(a,b){const out={...a};for(const k in b){const x=out[k],y=b[k];if(!x){out[k]=y;continue;}
+  const pick=(y.done||[]).length>(x.done||[]).length?y:x;out[k]={...x,...y,...pick,done:Array.from(new Set([...(x.done||[]),...(y.done||[])])),extras:(x.extras||[]).length>=(y.extras||[]).length?x.extras:y.extras};}return out;}
+async function syncPull(){if(!syncReady())return;try{
+  const r=await fetch(syncUrl());
+  if(r.status===404){await syncPush();return;}
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const doc=await r.json();const remote=JSON.parse(doc.fields.data.stringValue);const rt=Number(doc.fields.updatedAt?.integerValue||0);
+  if(rt>(S.updatedAt||0)){const localDays=S.days;S=remote;S.days=mergeDays(remote.days||{},localDays||{});load(true);saveLocal();render();}
+  else if(rt<(S.updatedAt||0)){await syncPush();}
+  lastSync=Date.now();setSyncStatus('ok','Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}));
+ }catch(e){setSyncStatus('err','Offline right now. Changes are saved here and will sync when back online.');}}
+function startSync(){clearInterval(pullTimer);if(!syncReady())return;syncPull();pullTimer=setInterval(()=>{if(!document.hidden)syncPull();},20000);}
+function renderSync(){const code=document.getElementById('syncCode'),con=document.getElementById('syncConnect'),off=document.getElementById('syncOff');
+  if(!SYNC.projectId){document.getElementById('syncHelp').textContent='Family sync is not set up yet. It needs a one-time Firebase setup by a parent.';code.disabled=true;con.disabled=true;return;}
+  code.value=syncCode;off.hidden=!syncCode;con.textContent=syncCode?'Change code':'Connect';
+  if(!syncCode)setSyncStatus('off','Not connected. Data stays on this device only.');}
+
 /* ---------- storage ---------- */
 let S;
-function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);}}catch(e){}
+function load(fromRemote){
+  if(!fromRemote){try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);}}catch(e){}}
   if(!S||!S.drills){S={name:'Scarlett',drills:structuredClone(DEFAULT_DRILLS),rewards:structuredClone(DEFAULT_REWARDS),days:{},freezes:0,settled:null,badges:[]};}
   if(S.pucks==null)S.pucks=0;if(S.freezeAt==null)S.freezeAt=0;
   if(!S.profile)S.profile={num:'',pos:'Forward',team:'',motto:'',hero:''};
@@ -646,7 +683,8 @@ function load(){
   if(!S.settings)S.settings={confirmGames:true};
   S.drills=S.drills.filter(d=>!(d.id==='d10'&&d.name==='BTNL'));
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function save(){S.updatedAt=Date.now();saveLocal();schedulePush();}
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -810,7 +848,7 @@ function unlocked(r,st){return r.type==='streak'?st.best>=r.value:r.type==='leve
 function condText(r){return r.type==='streak'?r.value+'-day streak':r.type==='level'?'Reach level '+r.value:'Costs '+r.value+' pucks';}
 
 function renderCoach(){
-  renderAward();renderPending();gateCoach();
+  renderAward();renderPending();renderSync();gateCoach();
   const ed=$('drillEditor');ed.innerHTML='';
   for(const c of CATS){
     const wrap=document.createElement('div');
@@ -966,6 +1004,12 @@ $('awardBtn').onclick=()=>{const x=EXTRAS.find(e=>e.id===awardSel);if(!awardStar
 
 ['awardPk','awardXp'].forEach(id=>$(id).addEventListener('input',()=>{$('awardPreview').textContent='Custom amount';}));
 
+/* ---------- sync buttons ---------- */
+document.getElementById('syncConnect').onclick=()=>{const v=document.getElementById('syncCode').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
+  if(v.length<6){toast('Code needs at least 6 letters or numbers');return;}
+  syncCode=v;try{localStorage.setItem(CODE_KEY,v);}catch(e){}renderSync();setSyncStatus('wait','Connecting…');startSync();toast('Family sync on');};
+document.getElementById('syncOff').onclick=()=>{syncCode='';try{localStorage.removeItem(CODE_KEY);}catch(e){}clearInterval(pullTimer);renderSync();toast('Sync off. Data stays on this device.');};
+
 /* ---------- parent PIN ---------- */
 let coachUnlocked=false;
 function gateCoach(){const setup=!S.pin;const need=!setup&&!coachUnlocked;$('pinSetup').hidden=!setup;$('pinGate').hidden=!need;$('coachBody').hidden=setup||need;}
@@ -1074,9 +1118,9 @@ function confetti(){
 }
 
 /* ---------- boot ---------- */
-load();settle();checkBadges();render();
+load();settle();checkBadges();render();startSync();
 const v=location.hash.slice(1);if(['progress','me','games','shop','coach'].includes(v))showView(v);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){settle();render();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){settle();render();syncPull();}});
 })();
 </script>
 
