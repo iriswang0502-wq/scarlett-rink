@@ -471,6 +471,12 @@ textarea{width:100%;min-height:90px;font:12px/1.4 ui-monospace,Menlo,monospace;b
       <p class="help">For a sick day or a trip. Freezes go in her bank (max 3). She also earns one automatically every 7 days in a row.</p>
       <div class="actions" style="margin-top:8px"><button class="btn ghost" id="giveFreeze">Give 1 streak freeze</button><button class="btn ghost" id="takeFreeze">Take 1 freeze</button><button class="btn ghost" id="givePucks">Give 5 pucks</button></div>
     </div>
+    <div class="card" id="remindCard">
+      <h2>Daily reminder</h2>
+      <p class="help">A notification on days the drills aren't done yet, like Duolingo. Works on the iPad once the app is on the home screen and Family sync is on.</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><label class="help" for="remindHour">Remind at</label><select id="remindHour"></select><button class="btn" id="remindOn">Turn on for this device</button><button class="btn ghost" id="remindOff" hidden>Turn off here</button></div>
+      <p class="help" id="remindStatus" style="margin:8px 0 0"></p>
+    </div>
     <div class="card" id="syncCard">
       <h2>Family sync</h2>
       <p class="help" id="syncHelp">Share one set of data between her iPad, your computer and your phone. Enter the same family code on each device. Six or more letters or numbers, something only the family knows.</p>
@@ -854,7 +860,7 @@ function unlocked(r,st){return r.type==='streak'?st.best>=r.value:r.type==='leve
 function condText(r){return r.type==='streak'?r.value+'-day streak':r.type==='level'?'Reach level '+r.value:'Costs '+r.value+' pucks';}
 
 function renderCoach(){
-  renderAward();renderPending();renderSync();gateCoach();
+  renderAward();renderPending();renderSync();renderRemind();gateCoach();
   const ed=$('drillEditor');ed.innerHTML='';
   for(const c of CATS){
     const wrap=document.createElement('div');
@@ -1009,6 +1015,34 @@ $('awardBtn').onclick=()=>{const x=EXTRAS.find(e=>e.id===awardSel);if(!awardStar
   S.pucks+=pk;$('awardNote').value='';awardStars=0;$('awardDate').value=today();save();checkBadges();render();confetti();toast(`Awarded for ${k===today()?'today':k}! +${pk} pucks`);showView(k===today()?'today':'progress');};
 
 ['awardPk','awardXp'].forEach(id=>$(id).addEventListener('input',()=>{$('awardPreview').textContent='Custom amount';}));
+
+/* ---------- daily reminder (web push) ---------- */
+const VAPID_PUBLIC='BDSGYlOgb1h82xWG7RcZQarhwAn_3pfZw5LNit3Zg9OELSXGj6FfwNcibcTg_Ff1wz-KtBVYHzo-JRG4WvgSKeM';
+function b64ToU8(s){const p='='.repeat((4-s.length%4)%4);const b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0));}
+let mySubEndpoint='';try{mySubEndpoint=localStorage.getItem('scarletts-rink-push')||'';}catch(e){}
+function renderRemind(){const sel=$('remindHour');if(!sel.options.length){for(let h=6;h<=21;h++){const o=document.createElement('option');o.value=h;o.textContent=(h%12||12)+(h<12?' am':' pm');sel.appendChild(o);}}
+  if(!S.reminder)S.reminder={hour:18,tz:Intl.DateTimeFormat().resolvedOptions().timeZone||'America/Toronto'};sel.value=S.reminder.hour;
+  const subs=S.push||[];const mine=mySubEndpoint&&subs.some(x=>x.endpoint===mySubEndpoint);
+  $('remindOn').hidden=mine;$('remindOff').hidden=!mine;
+  const standalone=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;const canPush='serviceWorker' in navigator&&'PushManager' in window&&location.protocol==='https:';
+  let st='';if(!syncCode)st='Turn on Family sync first, reminders are sent through it.';
+  else if(mine)st=`On for this device at ${sel.options[sel.selectedIndex].textContent}. ${subs.length} device${subs.length===1?'':'s'} get reminders.`;
+  else if(!canPush)st=/iPad|iPhone/.test(navigator.userAgent)&&!standalone?'On the iPad, first add the app to the home screen from Safari, then open it from the icon and tap Turn on.':'This browser cannot show notifications for the app. Try it on the iPad home-screen icon.';
+  else st=subs.length?`${subs.length} device${subs.length===1?'':'s'} already get reminders. Tap Turn on to add this one.`:'No devices yet. Tap Turn on, then Allow.';
+  $('remindStatus').textContent=st;}
+$('remindHour').onchange=()=>{S.reminder=S.reminder||{};S.reminder.hour=Number($('remindHour').value);S.reminder.tz=Intl.DateTimeFormat().resolvedOptions().timeZone||S.reminder.tz;save();renderRemind();toast('Reminder time saved');};
+$('remindOn').onclick=async()=>{try{
+  if(!syncCode){toast('Turn on Family sync first');return;}
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){toast('Not supported in this browser');return;}
+  const perm=await Notification.requestPermission();if(perm!=='granted'){toast('Notifications were not allowed');return;}
+  const reg=await navigator.serviceWorker.ready;
+  const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUBLIC)});
+  const j=sub.toJSON();S.push=(S.push||[]).filter(x=>x.endpoint!==j.endpoint);S.push.push({endpoint:j.endpoint,keys:j.keys,label:/iPad/.test(navigator.userAgent)?'iPad':/iPhone/.test(navigator.userAgent)?'iPhone':'computer',added:today()});
+  mySubEndpoint=j.endpoint;try{localStorage.setItem('scarletts-rink-push',j.endpoint);}catch(e){}
+  S.reminder=S.reminder||{hour:18};S.reminder.tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'America/Toronto';
+  save();renderRemind();toast('Reminders on');}catch(e){toast('Could not turn on: '+(e.message||e));}};
+$('remindOff').onclick=async()=>{S.push=(S.push||[]).filter(x=>x.endpoint!==mySubEndpoint);try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe();}catch(e){}
+  mySubEndpoint='';try{localStorage.removeItem('scarletts-rink-push');}catch(e){}save();renderRemind();toast('Reminders off on this device');};
 
 /* ---------- sync buttons ---------- */
 document.getElementById('syncConnect').onclick=()=>{const v=document.getElementById('syncCode').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');

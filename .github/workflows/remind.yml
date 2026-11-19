@@ -1,0 +1,21 @@
+name: Daily reminders
+on:
+  schedule:
+    - cron: '7 * * * *'   # every hour; the script decides whose reminder hour it is
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-save web-push@3.6.7
+      - run: node scripts/remind.mjs
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          FAMILY_CODES: ${{ secrets.FAMILY_CODES }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
